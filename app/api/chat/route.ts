@@ -3,7 +3,7 @@ import { createClient, isSupabaseConfigured } from "@/lib/supabase/server"
 import { semanticSearch } from "@/lib/embeddings"
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase environment variables are not set" },
       { status: 500 },

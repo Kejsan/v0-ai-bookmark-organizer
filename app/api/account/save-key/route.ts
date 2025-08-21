@@ -24,7 +24,7 @@ function encryptSecret(plaintext: string): { ciphertext: Buffer; nonce: Buffer }
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase environment variables are not set" },
       { status: 500 },
