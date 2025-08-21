@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { fetchPageMetadata } from "@/lib/scrape-meta"
+import { validateUrl } from "@/lib/validate-url"
 import { summarizeUrlWithGemini } from "@/lib/ai/gemini"
 import { upsertBookmarkEmbedding } from "@/lib/embeddings"
 
@@ -21,11 +22,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "URL is required" }, { status: 400 })
     }
 
-    // Validate URL format
+    // Validate URL and reject private network targets
     try {
-      new URL(url)
+      validateUrl(url)
     } catch {
-      return NextResponse.json({ error: "Invalid URL format" }, { status: 400 })
+      return NextResponse.json({ error: "Invalid or disallowed URL" }, { status: 400 })
     }
 
     let categoryId: number | null = null
