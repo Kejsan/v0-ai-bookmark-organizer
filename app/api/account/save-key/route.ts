@@ -52,8 +52,8 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.from("user_api_credentials").upsert({
       user_id: user.id,
       provider: "gemini",
-      encrypted_key: ciphertext,
-      nonce: nonce,
+      encrypted_key: ciphertext.toString("base64"),
+      nonce: nonce.toString("base64"),
     })
 
     if (error) {

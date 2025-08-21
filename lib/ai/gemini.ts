@@ -22,8 +22,8 @@ export async function getUserGeminiKey(userId: string): Promise<string> {
   }
 
   const key = Buffer.from(masterKey, "base64")
-  const nonce = Buffer.from(data.nonce)
-  const encryptedData = Buffer.from(data.encrypted_key)
+  const nonce = Buffer.from(data.nonce, "base64")
+  const encryptedData = Buffer.from(data.encrypted_key, "base64")
 
   // Split encrypted data and auth tag (last 16 bytes)
   const authTag = encryptedData.slice(-16)
