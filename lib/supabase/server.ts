@@ -9,10 +9,7 @@ export const isSupabaseConfigured =
   typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
 
-// Create a cached version of the Supabase client for Server Components
 export const createClient = cache(() => {
-  const cookieStore = cookies()
-
   if (!isSupabaseConfigured) {
     console.warn("Supabase environment variables are not set. Using dummy client.")
     return {
@@ -23,9 +20,29 @@ export const createClient = cache(() => {
     } as any
   }
 
+  const cookieStore = cookies()
+
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        storage: {
+          getItem: (key: string) => {
+            const cookie = cookieStore.get(key)
+            return cookie?.value || null
+          },
+          setItem: (key: string, value: string) => {
+            // Server-side can't set cookies directly
+            // This will be handled by the client-side auth flow
+          },
+          removeItem: (key: string) => {
+            // Server-side can't remove cookies directly
+            // This will be handled by the client-side auth flow
+          },
+        },
+      },
+    },
   )
 
   return supabase
