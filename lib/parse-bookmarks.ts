@@ -1,3 +1,5 @@
+import { JSDOM } from "jsdom"
+
 export type ParsedFolder = {
   name: string
   children: Array<ParsedFolder | ParsedLink>
@@ -10,10 +12,10 @@ export type ParsedLink = {
   icon?: string
 }
 
-export function parseNetscapeBookmarks(html: string): ParsedFolder[] {
-  // Create a simple HTML parser for Netscape bookmark format
-  const parser = new DOMParser()
-  const doc = parser.parseFromString(html, "text/html")
+export function parseNetscapeBookmarks(html: string): Array<ParsedFolder | ParsedLink> {
+  // Use JSDOM to safely parse the incoming bookmark HTML in Node
+  const dom = new JSDOM(html)
+  const doc = dom.window.document
 
   const dl = doc.querySelector("dl")
   if (!dl) return []
@@ -23,7 +25,7 @@ export function parseNetscapeBookmarks(html: string): ParsedFolder[] {
     const dtElements = Array.from(node.children).filter((child) => child.tagName === "DT")
 
     for (let i = 0; i < dtElements.length; i++) {
-      const dt = dtElements[i]
+      const dt = dtElements[i] as Element
       const h3 = dt.querySelector("h3")
       const a = dt.querySelector("a")
 
@@ -36,7 +38,7 @@ export function parseNetscapeBookmarks(html: string): ParsedFolder[] {
           nextSibling = nextSibling.nextElementSibling
         }
 
-        const nested = nextSibling?.tagName === "DL" ? nextSibling : null
+        const nested = nextSibling?.tagName === "DL" ? (nextSibling as Element) : null
         out.push({
           name,
           children: nested ? walkDL(nested) : [],
