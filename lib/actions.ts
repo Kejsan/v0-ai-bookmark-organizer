@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
 export async function signIn(prevState: any, formData: FormData) {
@@ -13,6 +13,10 @@ export async function signIn(prevState: any, formData: FormData) {
 
   if (!email || !password) {
     return { error: "Email and password are required" }
+  }
+
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase is not configured" }
   }
 
   const supabase = createClient()
@@ -46,6 +50,10 @@ export async function signUp(prevState: any, formData: FormData) {
     return { error: "Email and password are required" }
   }
 
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase is not configured" }
+  }
+
   const supabase = createClient()
 
   try {
@@ -71,6 +79,9 @@ export async function signUp(prevState: any, formData: FormData) {
 }
 
 export async function signOut() {
+  if (!isSupabaseConfigured()) {
+    return { error: "Supabase is not configured" }
+  }
   const supabase = createClient()
   await supabase.auth.signOut()
   redirect("/auth/login")
