@@ -6,7 +6,7 @@ import { summarizeUrlWithGemini } from "@/lib/ai/gemini"
 import { upsertBookmarkEmbedding } from "@/lib/embeddings"
 
 export async function POST(request: NextRequest) {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase environment variables are not set" },
       { status: 500 },

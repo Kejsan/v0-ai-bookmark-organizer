@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import SignUpForm from "@/components/signup-form"
 
 export default async function SignUpPage() {
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#000080]">
         <h1 className="text-2xl font-bold mb-4 text-white">Connect Supabase to get started</h1>
