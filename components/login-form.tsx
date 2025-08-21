@@ -64,6 +64,7 @@ export default function LoginForm() {
               id="email"
               name="email"
               type="email"
+              autoComplete="email"
               placeholder="you@example.com"
               required
               className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
@@ -77,6 +78,7 @@ export default function LoginForm() {
               id="password"
               name="password"
               type="password"
+              autoComplete="current-password"
               required
               className="bg-white/10 border-white/20 text-white"
             />
