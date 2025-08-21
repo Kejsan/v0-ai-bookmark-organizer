@@ -30,7 +30,7 @@ html {
       </head>
       <body>
         <Suspense fallback={null}>{children}</Suspense>
-        <Analytics />
+        {process.env.VERCEL && <Analytics />}
       </body>
     </html>
   )
