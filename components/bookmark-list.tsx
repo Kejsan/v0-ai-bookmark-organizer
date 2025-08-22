@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,48 +28,61 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const supabase = createClient()
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
-      const supabase = createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        setBookmarks([])
-        setCategories([])
-        setLoading(false)
-        return
-      }
-
-      const [bookmarkRes, categoryRes] = await Promise.all([
-        supabase
-          .from("bookmarks")
-          .select("id, title, url, description, favicon_url, category_id")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("categories")
-          .select("id, path")
-          .eq("user_id", user.id),
-      ])
-
-      if (!bookmarkRes.error && bookmarkRes.data) {
-        setBookmarks(bookmarkRes.data as Bookmark[])
-      }
-
-      if (!categoryRes.error && categoryRes.data) {
-        setCategories(categoryRes.data as Category[])
-      }
-
+    if (!user) {
+      setBookmarks([])
+      setCategories([])
       setLoading(false)
+      return
     }
 
+    const [bookmarkRes, categoryRes] = await Promise.all([
+      supabase
+        .from("bookmarks")
+        .select("id, title, url, description, favicon_url, category_id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("categories")
+        .select("id, path")
+        .eq("user_id", user.id),
+    ])
+
+    if (!bookmarkRes.error && bookmarkRes.data) {
+      setBookmarks(bookmarkRes.data as Bookmark[])
+    }
+
+    if (!categoryRes.error && categoryRes.data) {
+      setCategories(categoryRes.data as Category[])
+    }
+
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
     fetchData()
-  }, [refreshTrigger])
+  }, [fetchData, refreshTrigger])
+
+  const handleMove = async (id: number, categoryId: number | null) => {
+    await fetch(`/api/bookmarks/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ category_id: categoryId }),
+    })
+    fetchData()
+  }
+
+  const handleDelete = async (id: number) => {
+    await fetch(`/api/bookmarks/${id}`, { method: "DELETE" })
+    fetchData()
+  }
 
   const getCategoryPath = (id: number | null) => {
     if (!id) return ""
@@ -109,11 +122,37 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                     </p>
                   )}
                 </div>
-                <Button variant="ghost" size="sm" asChild>
-                  <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="border rounded p-1 text-sm"
+                    value={bookmark.category_id ?? ""}
+                    onChange={(e) =>
+                      handleMove(
+                        bookmark.id,
+                        e.target.value ? Number(e.target.value) : null,
+                      )
+                    }
+                  >
+                    <option value="">No category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.path}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(bookmark.id)}
+                  >
+                    Delete
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
