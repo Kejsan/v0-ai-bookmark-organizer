@@ -49,12 +49,16 @@ export const createClient = cache(() => {
             return cookie?.value || null
           },
           setItem: (key: string, value: string) => {
-            // Server-side can't set cookies directly
-            // This will be handled by the client-side auth flow
+            cookieStore.set(key, value, {
+              path: "/",
+              maxAge: 60 * 60 * 24 * 365,
+              sameSite: "lax",
+              secure: process.env.NODE_ENV === "production",
+              httpOnly: true,
+            })
           },
           removeItem: (key: string) => {
-            // Server-side can't remove cookies directly
-            // This will be handled by the client-side auth flow
+            cookieStore.delete(key)
           },
         },
       },
