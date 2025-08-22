@@ -34,6 +34,9 @@ export async function signIn(prevState: any, formData: FormData) {
     redirect("/")
   } catch (error) {
     console.error("Login error:", error)
+    if (error instanceof Error) {
+      return { error: error.message }
+    }
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
