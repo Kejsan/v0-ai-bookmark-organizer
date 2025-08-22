@@ -4,23 +4,25 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, Plus, Settings, LogOut } from "lucide-react"
+import { Upload, Plus, Settings, LogOut, Bookmark } from "lucide-react"
 import UploadDropzone from "@/components/upload-dropzone"
 import AddLinkForm from "@/components/add-link-form"
 import ChatPanel from "@/components/chat-panel"
 import ApiKeyManager from "@/components/api-key-manager"
+import BookmarkList from "@/components/bookmark-list"
 import { signOut } from "@/lib/actions"
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("upload")
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const handleUploadComplete = () => {
-    // Refresh or update bookmark list if needed
+    setRefreshTrigger((c) => c + 1)
     console.log("Upload completed")
   }
 
   const handleLinkAdded = () => {
-    // Refresh or update bookmark list if needed
+    setRefreshTrigger((c) => c + 1)
     console.log("Link added")
   }
 
@@ -60,7 +62,7 @@ export default function Dashboard() {
           {/* Left Column - Upload & Add Links */}
           <div className="lg:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   Import
@@ -68,6 +70,10 @@ export default function Dashboard() {
                 <TabsTrigger value="add-link" className="flex items-center gap-2">
                   <Plus className="h-4 w-4" />
                   Add Link
+                </TabsTrigger>
+                <TabsTrigger value="bookmarks" className="flex items-center gap-2">
+                  <Bookmark className="h-4 w-4" />
+                  Bookmarks
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="flex items-center gap-2">
                   <Settings className="h-4 w-4" />
@@ -81,6 +87,10 @@ export default function Dashboard() {
 
               <TabsContent value="add-link" className="mt-6">
                 <AddLinkForm onLinkAdded={handleLinkAdded} />
+              </TabsContent>
+
+              <TabsContent value="bookmarks" className="mt-6">
+                <BookmarkList refreshTrigger={refreshTrigger} />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-6">
