@@ -39,10 +39,13 @@ export default function UploadDropzone({ onUploadComplete }: UploadDropzoneProps
       const result = await response.json()
 
       if (response.ok) {
-        alert("Bookmarks imported successfully!")
-        onUploadComplete?.()
+        alert(`Imported ${result.imported} bookmarks. Failed: ${result.failed}.`)
+        if (result.imported > 0) {
+          onUploadComplete?.()
+        }
       } else {
-        alert(`Import failed: ${result.error}`)
+        const message = result.errors?.join("\n") || result.error
+        alert(`Import failed. Imported: ${result.imported}, Failed: ${result.failed}.\n${message}`)
       }
     } catch (error) {
       console.error("Upload error:", error)

@@ -38,6 +38,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No bookmarks found in file" }, { status: 400 })
     }
 
+    let insertedCount = 0
+    let failedCount = 0
+    const errors: string[] = []
+
     // Helper function to ensure category path exists
     async function ensureCategory(path: string): Promise<number | null> {
       if (!path) return null
@@ -128,8 +132,12 @@ export async function POST(request: NextRequest) {
 
             if (bookmarkError) {
               console.error("Failed to insert bookmark:", bookmarkError)
+              failedCount++
+              errors.push(bookmarkError.message)
               continue // Skip this bookmark but continue processing others
             }
+
+            insertedCount++
 
             // Create embedding (async, don't wait)
             if (bookmark) {
@@ -142,6 +150,10 @@ export async function POST(request: NextRequest) {
             }
           } catch (error) {
             console.error(`Failed to process bookmark ${item.href}:`, error)
+            failedCount++
+            if (error instanceof Error) {
+              errors.push(error.message)
+            }
             // Continue processing other bookmarks
           }
         }
@@ -150,10 +162,17 @@ export async function POST(request: NextRequest) {
 
     await processBookmarks(bookmarkTree)
 
-    return NextResponse.json({
-      success: true,
-      message: "Bookmarks imported successfully",
-    })
+    const result = {
+      imported: insertedCount,
+      failed: failedCount,
+      errors,
+    }
+
+    if (insertedCount === 0) {
+      return NextResponse.json(result, { status: 400 })
+    }
+
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Upload error:", error)
     return NextResponse.json({ error: "Failed to process bookmark file" }, { status: 500 })
