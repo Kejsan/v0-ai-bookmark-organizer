@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,30 @@ export default function AddLinkForm({ onLinkAdded }: AddLinkFormProps) {
   const [url, setUrl] = useState("")
   const [categoryPath, setCategoryPath] = useState("")
   const [isAdding, setIsAdding] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const res = await fetch("/api/categories")
+        if (!res.ok) return
+        const data = await res.json()
+        const paths: string[] = []
+        const walk = (nodes: any[]) => {
+          for (const node of nodes) {
+            paths.push(node.path)
+            if (node.children?.length) walk(node.children)
+          }
+        }
+        walk(data.categories || [])
+        setCategories(paths)
+      } catch (error) {
+        console.error("Failed to fetch categories:", error)
+      }
+    }
+
+    fetchCategories()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,7 +118,13 @@ export default function AddLinkForm({ onLinkAdded }: AddLinkFormProps) {
               onChange={(e) => setCategoryPath(e.target.value)}
               placeholder="Work/Tools or leave empty"
               disabled={isAdding}
+              list="category-suggestions"
             />
+            <datalist id="category-suggestions">
+              {categories.map((path) => (
+                <option key={path} value={path} />
+              ))}
+            </datalist>
             <p className="text-xs text-gray-500 mt-1">Use forward slashes to create nested categories</p>
           </div>
 
