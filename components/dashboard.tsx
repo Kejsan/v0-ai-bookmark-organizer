@@ -13,11 +13,12 @@ import BookmarkList from "@/components/bookmark-list"
 import { signOut } from "@/lib/actions"
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("upload")
+  const [activeTab, setActiveTab] = useState("bookmarks")
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const handleUploadComplete = () => {
     setRefreshTrigger((c) => c + 1)
+    setActiveTab("bookmarks")
     console.log("Upload completed")
   }
 
@@ -59,18 +60,20 @@ export default function Dashboard() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Upload & Add Links */}
+          {/* Left Column - Main Content */}
           <div className="lg:col-span-2">
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:gap-4">
+              <Button variant="outline" onClick={() => setActiveTab("upload")} className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Import
+              </Button>
+              <Button variant="outline" onClick={() => setActiveTab("add-link")} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Add Link
+              </Button>
+            </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="upload" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Import
-                </TabsTrigger>
-                <TabsTrigger value="add-link" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add Link
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="bookmarks" className="flex items-center gap-2">
                   <Bookmark className="h-4 w-4" />
                   Bookmarks
