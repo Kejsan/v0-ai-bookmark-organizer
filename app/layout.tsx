@@ -9,7 +9,6 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "AI Bookmark Organizer",
   description: "Organize and search your bookmarks with AI-powered intelligence",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
