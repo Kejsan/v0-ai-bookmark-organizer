@@ -71,16 +71,26 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
   }, [fetchData, refreshTrigger])
 
   const handleMove = async (id: number, categoryId: number | null) => {
-    await fetch(`/api/bookmarks/${id}`, {
+    const response = await fetch(`/api/bookmarks/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ category_id: categoryId }),
     })
+    if (!response.ok) {
+      const error = await response.json()
+      alert(error.error || error.message || "Failed to move bookmark")
+      return
+    }
     fetchData()
   }
 
   const handleDelete = async (id: number) => {
-    await fetch(`/api/bookmarks/${id}`, { method: "DELETE" })
+    const response = await fetch(`/api/bookmarks/${id}`, { method: "DELETE" })
+    if (!response.ok) {
+      const error = await response.json()
+      alert(error.error || error.message || "Failed to delete bookmark")
+      return
+    }
     fetchData()
   }
 
