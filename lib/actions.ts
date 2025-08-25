@@ -20,7 +20,6 @@ export async function signIn(prevState: any, formData: FormData) {
   }
 
   const supabase = createClient()
-
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: email.toString(),
@@ -30,15 +29,21 @@ export async function signIn(prevState: any, formData: FormData) {
     if (error) {
       return { error: error.message }
     }
-
-    redirect("/")
   } catch (error) {
     console.error("Login error:", error)
     if (error instanceof Error) {
+      if (
+        error.message === "NEXT_REDIRECT" ||
+        (error as any).digest === "NEXT_REDIRECT"
+      ) {
+        throw error
+      }
       return { error: error.message }
     }
     return { error: "An unexpected error occurred. Please try again." }
   }
+
+  redirect("/")
 }
 
 export async function signUp(prevState: any, formData: FormData) {
