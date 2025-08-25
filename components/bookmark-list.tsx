@@ -171,4 +171,3 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
     </Card>
   )
 }
-
