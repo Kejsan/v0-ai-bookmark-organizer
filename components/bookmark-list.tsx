@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ExternalLink } from "lucide-react"
@@ -30,40 +29,40 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
   const [loading, setLoading] = useState(true)
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
+    try {
+      const [bookmarkRes, categoryRes] = await Promise.all([
+        fetch("/api/bookmarks"),
+        fetch("/api/categories"),
+      ])
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+      if (bookmarkRes.ok) {
+        const data = await bookmarkRes.json()
+        setBookmarks((data.bookmarks || []) as Bookmark[])
+      } else {
+        setBookmarks([])
+      }
 
-    if (!user) {
+      if (categoryRes.ok) {
+        const data = await categoryRes.json()
+        const flat: Category[] = []
+        const walk = (nodes: any[]) => {
+          for (const node of nodes) {
+            flat.push({ id: node.id, path: node.path })
+            if (node.children?.length) walk(node.children)
+          }
+        }
+        walk(data.categories || [])
+        setCategories(flat)
+      } else {
+        setCategories([])
+      }
+    } catch (error) {
+      console.error("Failed to fetch data:", error)
       setBookmarks([])
       setCategories([])
+    } finally {
       setLoading(false)
-      return
     }
-
-    const [bookmarkRes, categoryRes] = await Promise.all([
-      supabase
-        .from("bookmarks")
-        .select("id, title, url, description, favicon_url, category_id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("categories")
-        .select("id, path")
-        .eq("user_id", user.id),
-    ])
-
-    if (!bookmarkRes.error && bookmarkRes.data) {
-      setBookmarks(bookmarkRes.data as Bookmark[])
-    }
-
-    if (!categoryRes.error && categoryRes.data) {
-      setCategories(categoryRes.data as Category[])
-    }
-
-    setLoading(false)
   }, [])
 
   useEffect(() => {
