@@ -15,11 +15,13 @@ export async function signIn(prevState: any, formData: FormData) {
     return { error: "Email and password are required" }
   }
 
-  if (!isSupabaseConfigured()) {
-    return { error: "Supabase is not configured" }
-  }
-
   const supabase = createClient()
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+    }
+  }
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: email.toString(),

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
 import { signIn } from "@/lib/actions"
+import { isSupabaseConfigured } from "@/lib/supabase/client"
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -31,6 +32,7 @@ function SubmitButton() {
 
 export default function LoginForm() {
   const [state, formAction] = useActionState(signIn, null)
+  const supabaseConfigured = isSupabaseConfigured()
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -40,7 +42,12 @@ export default function LoginForm() {
       </div>
 
       <form action={formAction} className="space-y-6">
-        {state?.error && (
+        {!supabaseConfigured && (
+          <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
+            Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+          </div>
+        )}
+        {supabaseConfigured && state?.error && (
           <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
             {state.error}
           </div>
