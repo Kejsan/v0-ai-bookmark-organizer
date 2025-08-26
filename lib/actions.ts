@@ -15,13 +15,13 @@ export async function signIn(prevState: any, formData: FormData) {
     return { error: "Email and password are required" }
   }
 
-  const supabase = createClient()
   if (!isSupabaseConfigured()) {
     return {
       error:
         "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     }
   }
+  const supabase = createClient()
   try {
     const { error } = await supabase.auth.signInWithPassword({
       email: email.toString(),
@@ -33,14 +33,11 @@ export async function signIn(prevState: any, formData: FormData) {
     }
   } catch (error) {
     console.error("Login error:", error)
-    if (error instanceof Error) {
-      if (
-        error.message === "NEXT_REDIRECT" ||
-        (error as any).digest === "NEXT_REDIRECT"
-      ) {
-        throw error
-      }
-      return { error: error.message }
+    if (
+      error instanceof Error &&
+      (error.message === "NEXT_REDIRECT" || (error as any).digest === "NEXT_REDIRECT")
+    ) {
+      throw error
     }
     return { error: error instanceof Error ? error.message : String(error) }
   }
@@ -84,7 +81,7 @@ export async function signUp(prevState: any, formData: FormData) {
     return { success: "Check your email to confirm your account." }
   } catch (error) {
     console.error("Sign up error:", error)
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: error instanceof Error ? error.message : String(error) }
   }
 }
 
