@@ -42,7 +42,7 @@ export async function signIn(prevState: any, formData: FormData) {
       }
       return { error: error.message }
     }
-    return { error: "An unexpected error occurred. Please try again." }
+    return { error: error instanceof Error ? error.message : String(error) }
   }
 
   redirect("/")
