@@ -1,6 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
-import { cache } from "react"
 
 // Check if Supabase environment variables are available
 export function isSupabaseConfigured() {
@@ -12,7 +11,7 @@ export function isSupabaseConfigured() {
   )
 }
 
-export const createClient = cache(() => {
+export function createClient() {
   if (!isSupabaseConfigured()) {
     console.warn("Supabase environment variables are not set. Using dummy client.")
     return {
@@ -66,4 +65,4 @@ export const createClient = cache(() => {
   )
 
   return supabase
-})
+}
