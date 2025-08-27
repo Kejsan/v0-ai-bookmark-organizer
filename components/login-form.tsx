@@ -1,24 +1,21 @@
 "use client"
 
-import { useActionState } from "react"
-import { useFormStatus } from "react-dom"
+import { useState, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
-import { signIn } from "@/lib/actions"
-import { isSupabaseConfigured } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-
+function SubmitButton({ loading }: { loading: boolean }) {
   return (
     <Button
       type="submit"
-      disabled={pending}
+      disabled={loading}
       className="w-full bg-[#54a09b] hover:bg-[#4a8f8a] text-white py-6 text-lg font-medium rounded-lg h-[60px]"
     >
-      {pending ? (
+      {loading ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Signing in...
@@ -31,8 +28,24 @@ function SubmitButton() {
 }
 
 export default function LoginForm() {
-  const [state, formAction] = useActionState(signIn, null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClient()
   const supabaseConfigured = isSupabaseConfigured()
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    setLoading(false)
+    if (error) setError(error.message)
+    else router.push("/")
+  }
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -41,15 +54,15 @@ export default function LoginForm() {
         <p className="text-lg text-gray-300">Sign in to your bookmark organizer</p>
       </div>
 
-      <form action={formAction} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {!supabaseConfigured && (
           <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
             Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
           </div>
         )}
-        {supabaseConfigured && state?.error && (
+        {supabaseConfigured && error && (
           <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
-            {state.error}
+            {error}
           </div>
         )}
 
@@ -83,7 +96,7 @@ export default function LoginForm() {
           </div>
         </div>
 
-        <SubmitButton />
+        <SubmitButton loading={loading} />
 
         <div className="text-center text-gray-300">
           Don't have an account?{" "}
