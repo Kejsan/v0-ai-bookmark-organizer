@@ -98,9 +98,10 @@ export async function POST(request: NextRequest) {
         } else {
           // This is a bookmark
           const folderPath = pathPrefix.join("/")
-          const categoryId = await ensureCategory(folderPath || "Imported")
 
           try {
+            const categoryId = await ensureCategory(folderPath || "Imported")
+
             // Validate URL before fetching
             validateUrl(item.href)
             // Fetch metadata
