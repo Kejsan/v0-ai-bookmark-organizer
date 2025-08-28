@@ -43,7 +43,6 @@
     "@supabase/supabase-js": "latest",
     "@sveltejs/kit": "latest",
     "@types/debug": "latest",
-    "@vercel/analytics": "latest",
     "@vitest/browser": "latest",
     "@vitest/ui": "latest",
     "autoprefixer": "^10.4.20",
