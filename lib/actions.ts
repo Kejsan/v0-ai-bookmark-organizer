@@ -75,6 +75,27 @@ export async function signUp(prevState: any, formData: FormData) {
     })
 
     if (error) {
+      // If the user attempts to sign up repeatedly, Supabase will
+      // return a rate limit error. In that case we resend the
+      // confirmation email instead of surfacing the raw error.
+      if (
+        typeof error.message === "string" &&
+        error.message.toLowerCase().includes("rate limit")
+      ) {
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email: email.toString(),
+        })
+
+        if (!resendError) {
+          return {
+            success: "Confirmation email resent. Check your inbox to complete registration.",
+          }
+        }
+
+        return { error: resendError.message }
+      }
+
       return { error: error.message }
     }
 
