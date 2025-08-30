@@ -18,7 +18,7 @@ export async function signIn(prevState: any, formData: FormData) {
   if (!isSupabaseConfigured()) {
     return {
       error:
-        "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        "Application is not connected to Supabase. Please configure environment variables.",
     }
   }
   const supabase = createClient()
