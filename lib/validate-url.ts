@@ -1,9 +1,14 @@
-import { isIP } from "node:net"
+// Regular expression to check if a string is an IP address (IPv4 or IPv6)
+const IP_REGEX =
+  /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(?:[A-F0-9]{1,4}:){7}[A-F0-9]{1,4}$/i
+
+function isIP(str: string): boolean {
+  return IP_REGEX.test(str)
+}
 
 function isPrivateHostname(hostname: string): boolean {
   if (hostname === "localhost") return true
-  const ip = isIP(hostname)
-  if (ip) {
+  if (isIP(hostname)) {
     if (
       hostname === "127.0.0.1" ||
       hostname === "0.0.0.0" ||
