@@ -1,21 +1,22 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useActionState } from "react"
+import { useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import { signIn } from "@/lib/actions"
 
-function SubmitButton({ loading }: { loading: boolean }) {
+function SubmitButton() {
+  const { pending } = useFormStatus()
   return (
     <Button
       type="submit"
-      disabled={loading}
+      disabled={pending}
       className="w-full bg-[#54a09b] hover:bg-[#4a8f8a] text-white py-6 text-lg font-medium rounded-lg h-[60px]"
     >
-      {loading ? (
+      {pending ? (
         <>
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Signing in...
@@ -28,24 +29,7 @@ function SubmitButton({ loading }: { loading: boolean }) {
 }
 
 export default function LoginForm() {
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
-  const supabaseConfigured = isSupabaseConfigured()
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
-    if (error) setError(error.message)
-    else router.push("/")
-  }
+  const [state, formAction] = useActionState(signIn, null)
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -54,15 +38,10 @@ export default function LoginForm() {
         <p className="text-lg text-gray-300">Sign in to your bookmark organizer</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {!supabaseConfigured && (
+      <form action={formAction} className="space-y-6">
+        {state?.error && (
           <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
-            Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
-          </div>
-        )}
-        {supabaseConfigured && error && (
-          <div className="bg-[#fb6163]/10 border border-[#fb6163]/50 text-[#fb6163] px-4 py-3 rounded">
-            {error}
+            {state.error}
           </div>
         )}
 
@@ -96,7 +75,7 @@ export default function LoginForm() {
           </div>
         </div>
 
-        <SubmitButton loading={loading} />
+        <SubmitButton />
 
         <div className="text-center text-gray-300">
           Don't have an account?{" "}
