@@ -1,4 +1,4 @@
-import { JSDOM } from "jsdom"
+import { BookmarksParser, BookmarksTree } from "netscape-bookmark-parser"
 
 export type ParsedFolder = {
   name: string
@@ -12,51 +12,46 @@ export type ParsedLink = {
   icon?: string
 }
 
-export function parseNetscapeBookmarks(html: string): Array<ParsedFolder | ParsedLink> {
-  // Use JSDOM to safely parse the incoming bookmark HTML in Node
-  const dom = new JSDOM(html)
-  const doc = dom.window.document
+function convertTree(
+  tree: BookmarksTree,
+  level = 0,
+): Array<ParsedFolder | ParsedLink> {
+  const output: Array<ParsedFolder | ParsedLink> = []
 
-  const dl = doc.querySelector("dl")
-  if (!dl) return []
-
-  function walkDL(node: Element): Array<ParsedFolder | ParsedLink> {
-    const out: Array<ParsedFolder | ParsedLink> = []
-    const dtElements = Array.from(node.children).filter((child) => child.tagName === "DT")
-
-    for (let i = 0; i < dtElements.length; i++) {
-      const dt = dtElements[i] as Element
-      const h3 = dt.querySelector("h3")
-      const a = dt.querySelector("a")
-
-      if (h3) {
-        // This is a folder
-        const name = h3.textContent?.trim() || "Untitled Folder"
-        // Look for the next sibling DL element
-        let nextSibling = dt.nextElementSibling
-        while (nextSibling && nextSibling.tagName !== "DL" && nextSibling.tagName !== "DT") {
-          nextSibling = nextSibling.nextElementSibling
-        }
-
-        const nested = nextSibling?.tagName === "DL" ? (nextSibling as Element) : null
-        out.push({
-          name,
-          children: nested ? walkDL(nested) : [],
-        })
-      } else if (a) {
-        // This is a bookmark
-        const title = a.textContent?.trim() || "Untitled"
-        const href = a.getAttribute("href") || ""
-        const add_date = a.getAttribute("add_date") || undefined
-        const icon = a.getAttribute("icon") || undefined
-
-        if (href) {
-          out.push({ title, href, add_date, icon })
-        }
-      }
+  for (const [name, value] of tree) {
+    if (value instanceof BookmarksTree) {
+      // It's a folder
+      output.push({
+        name,
+        children: convertTree(value, level + 1),
+      })
+    } else {
+      // It's a bookmark
+      const url = value as unknown as string
+      // The library does not directly expose metadata like add_date or icon in the same way.
+      // We will have to make do with what we have.
+      output.push({
+        title: name,
+        href: url,
+      })
     }
-    return out
   }
 
-  return walkDL(dl)
+  return output
+}
+
+export function parseNetscapeBookmarks(
+  html: string,
+): Array<ParsedFolder | ParsedLink> {
+  if (!html) return []
+
+  try {
+    const bookmarksTree = BookmarksParser.parse(html)
+    // The top-level object from the parser is a BookmarksTree, which represents the root.
+    // We need to process its children.
+    return convertTree(bookmarksTree)
+  } catch (error) {
+    console.error("Failed to parse bookmarks:", error)
+    return []
+  }
 }
