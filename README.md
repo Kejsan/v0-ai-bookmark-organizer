@@ -44,3 +44,25 @@ The app requires several environment variables to connect to Supabase and handle
      - Optional: `NEXT_PUBLIC_SITE_URL`
    - Save the variables and trigger a new deploy.
 
+## Chrome extension sync
+
+The repository now ships with a Manifest V3 extension in `chrome-extension/` that can sync bookmarks and reading list entries from Chrome.
+
+### Loading the extension locally
+
+1. Clone/download this repository so the `chrome-extension` folder is on disk.
+2. Visit `chrome://extensions`, enable **Developer mode**, and click **Load unpacked**.
+3. Select the `chrome-extension` directory. The popup provides login and “Sync now” controls.
+
+See [`public/chrome-extension/README.html`](public/chrome-extension/README.html) for a step-by-step guide that can be shared with end users.
+
+### Import API
+
+The extension posts bookmark payloads to `POST /api/import-chrome`. The handler validates URLs, ensures categories exist, fetches metadata, calls Gemini for summaries, and enqueues embeddings so the dashboard stays searchable. Requests must include a Supabase access token via `Authorization: Bearer <token>`.
+
+### AI organisation helpers
+
+- `POST /api/organize` aggregates recent bookmarks, clusters them into suggested categories with Gemini, and surfaces potential duplicates using embedding similarity.
+- The dashboard’s **AI Suggestions** tab lets users review the generated moves and apply them with one click.
+
+

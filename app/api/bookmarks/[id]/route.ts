@@ -28,7 +28,12 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const update: { category_id?: number | null; folder_path?: string | null } = {}
+    const update: {
+      category_id?: number | null
+      folder_path?: string | null
+      is_read?: boolean
+      source?: string
+    } = {}
     if ("category_id" in body) {
       update.category_id = body.category_id
     } else if ("categoryId" in body) {
@@ -38,6 +43,14 @@ export async function PATCH(
       update.folder_path = body.folder_path
     } else if ("folderPath" in body) {
       update.folder_path = body.folderPath
+    }
+    if ("is_read" in body) {
+      update.is_read = Boolean(body.is_read)
+    } else if ("isRead" in body) {
+      update.is_read = Boolean(body.isRead)
+    }
+    if ("source" in body && typeof body.source === "string") {
+      update.source = body.source
     }
 
     const { error } = await supabase

@@ -1,9 +1,9 @@
 export const runtime = "nodejs"
 
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server"
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase environment variables are not set" },

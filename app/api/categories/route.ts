@@ -1,6 +1,6 @@
 export const runtime = "nodejs"
 
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server"
 
 interface CategoryNode {
@@ -11,7 +11,7 @@ interface CategoryNode {
   children: CategoryNode[]
 }
 
-export async function GET(_request: NextRequest) {
+export async function GET() {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase environment variables are not set" },

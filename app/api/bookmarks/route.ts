@@ -23,11 +23,12 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const category = searchParams.get("category")
+    const source = searchParams.get("source")
 
     let query = supabase
       .from("bookmarks")
       .select(
-        "id, title, url, description, favicon_url, category_id, folder_path",
+        "id, title, url, description, favicon_url, category_id, folder_path, source, is_read, created_at",
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
@@ -39,6 +40,10 @@ export async function GET(request: NextRequest) {
       } else {
         query = query.eq("folder_path", category)
       }
+    }
+
+    if (source) {
+      query = query.eq("source", source)
     }
 
     const { data, error } = await query
