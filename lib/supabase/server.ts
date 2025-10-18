@@ -1,14 +1,17 @@
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
 // Check if Supabase environment variables are available
 export function isSupabaseConfigured() {
-  return (
-    typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL.length > 0 &&
-    typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
-  )
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? undefined
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    undefined
+
+  return Boolean(url && url.length > 0 && anonKey && anonKey.length > 0)
 }
 
 export function createClient() {
@@ -37,34 +40,37 @@ export function createClient() {
 
   const cookieStore = cookies()
 
-  const supabase = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const canMutateCookies = typeof cookieStore.set === "function"
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY!,
     {
-      auth: {
-        storage: {
-          getItem: (key: string) => {
-            const cookie = cookieStore.get(key)
-            return cookie?.value || null
-          },
-          setItem: (key: string, value: string) => {
-            cookieStore.set(key, value, {
-              path: "/",
-              maxAge: 60 * 60 * 24 * 365,
-              sameSite: "lax",
-              secure: process.env.NODE_ENV === "production",
-              httpOnly: true,
-            })
-          },
-          removeItem: (key: string) => {
-            cookieStore.delete(key)
-          },
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options?: CookieOptions) {
+          if (!canMutateCookies) {
+            console.warn(
+              "Attempted to set Supabase auth cookie in a read-only context. Ensure this mutation runs inside a route handler or server action.",
+            )
+            return
+          }
+          cookieStore.set(name, value, options)
+        },
+        remove(name: string, options?: CookieOptions) {
+          if (!canMutateCookies) {
+            console.warn(
+              "Attempted to clear Supabase auth cookie in a read-only context. Ensure this mutation runs inside a route handler or server action.",
+            )
+            return
+          }
+          cookieStore.set(name, "", { ...options, maxAge: 0 })
         },
       },
     },
   )
-
-  return supabase
 }
 
 export function createClientWithAccessToken(token: string): SupabaseClient {
@@ -73,8 +79,8 @@ export function createClientWithAccessToken(token: string): SupabaseClient {
   }
 
   return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!,
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!,
     {
       global: {
         headers: {

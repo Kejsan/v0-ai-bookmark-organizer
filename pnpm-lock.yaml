@@ -98,6 +98,9 @@ importers:
       '@remix-run/react':
         specifier: latest
         version: 2.17.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(typescript@5.0.2)
+      '@supabase/ssr':
+        specifier: ^0.7.0
+        version: 0.7.0(@supabase/supabase-js@2.56.1)
       '@supabase/supabase-js':
         specifier: ^2.55.0
         version: 2.56.1
@@ -2369,6 +2372,11 @@ packages:
 
   '@supabase/realtime-js@2.15.4':
     resolution: {integrity: sha512-e/FYIWjvQJHOCNACWehnKvg26zosju3694k0NMUNb+JGLdvHJzEa29ZVVLmawd2kvx4hdbv8mxSqfttRnH3+DA==}
+
+  '@supabase/ssr@0.7.0':
+    resolution: {integrity: sha512-G65t5EhLSJ5c8hTCcXifSL9Q/ZRXvqgXeNo+d3P56f4U1IxwTqjB64UfmfixvmMcjuxnq2yGqEWVJqUcO+AzAg==}
+    peerDependencies:
+      '@supabase/supabase-js': ^2.43.4
 
   '@supabase/storage-js@2.11.0':
     resolution: {integrity: sha512-Y+kx/wDgd4oasAgoAq0bsbQojwQ+ejIif8uczZ9qufRHWFLMU5cODT+ApHsSrDufqUcVKt+eyxtOXSkeh2v9ww==}
@@ -9405,6 +9413,11 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@supabase/ssr@0.7.0(@supabase/supabase-js@2.56.1)':
+    dependencies:
+      '@supabase/supabase-js': 2.56.1
+      cookie: 1.0.2
 
   '@supabase/storage-js@2.11.0':
     dependencies:
