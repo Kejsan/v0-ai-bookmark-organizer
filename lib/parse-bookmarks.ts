@@ -1,5 +1,3 @@
-import { BookmarksParser, BookmarksTree } from "netscape-bookmark-parser"
-
 export type ParsedFolder = {
   name: string
   children: Array<ParsedFolder | ParsedLink>
@@ -12,46 +10,69 @@ export type ParsedLink = {
   icon?: string
 }
 
-function convertTree(
-  tree: BookmarksTree,
-  level = 0,
-): Array<ParsedFolder | ParsedLink> {
-  const output: Array<ParsedFolder | ParsedLink> = []
-
-  for (const [name, value] of tree) {
-    if (value instanceof BookmarksTree) {
-      // It's a folder
-      output.push({
-        name,
-        children: convertTree(value, level + 1),
-      })
-    } else {
-      // It's a bookmark
-      const url = value as unknown as string
-      // The library does not directly expose metadata like add_date or icon in the same way.
-      // We will have to make do with what we have.
-      output.push({
-        title: name,
-        href: url,
-      })
-    }
-  }
-
-  return output
-}
-
 export function parseNetscapeBookmarks(
   html: string,
 ): Array<ParsedFolder | ParsedLink> {
   if (!html) return []
+  const root: Array<ParsedFolder | ParsedLink> = []
+  const stack: ParsedFolder[] = []
 
-  try {
-    const bookmarksTree = BookmarksParser.parse(html)
-    // The top-level object from the parser is a BookmarksTree, which represents the root.
-    // We need to process its children.
-    return convertTree(bookmarksTree)
-  } catch (error) {
-    console.error("Failed to parse bookmarks:", error)
-    return []
+  const lines = html.split(/\r?\n/)
+
+  const getCurrentChildren = () => (stack.length > 0 ? stack[stack.length - 1].children : root)
+
+  const decodeHtml = (value: string) =>
+    value
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/&amp;/gi, "&")
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim()
+    if (!line) continue
+
+    if (line.startsWith("<DL")) {
+      continue
+    }
+
+    if (line.startsWith("</DL")) {
+      stack.pop()
+      continue
+    }
+
+    const folderMatch = line.match(/<DT><H3[^>]*>(.*?)<\/H3>/i)
+    if (folderMatch) {
+      const folderName = decodeHtml(folderMatch[1].trim())
+      const folder: ParsedFolder = { name: folderName, children: [] }
+      getCurrentChildren().push(folder)
+      stack.push(folder)
+      continue
+    }
+
+    const linkMatch = line.match(/<DT><A[^>]*HREF="([^"]+)"[^>]*>(.*?)<\/A>/i)
+    if (linkMatch) {
+      const href = linkMatch[1].trim()
+      const title = decodeHtml(linkMatch[2].trim())
+      const addDateMatch = line.match(/ADD_DATE="?([^"\s>]+)"?/i)
+      const iconMatch = line.match(/ICON="([^"]+)"/i)
+      const link: ParsedLink = {
+        title,
+        href,
+      }
+
+      if (addDateMatch) {
+        link.add_date = addDateMatch[1]
+      }
+
+      if (iconMatch) {
+        link.icon = iconMatch[1]
+      }
+
+      getCurrentChildren().push(link)
+    }
   }
+
+  return root
 }

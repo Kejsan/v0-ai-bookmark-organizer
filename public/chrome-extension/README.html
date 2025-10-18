@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI Bookmark Organizer Chrome Extension</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 40px 16px;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 32px;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
+      }
+      h1 {
+        margin-top: 0;
+        color: #001f52;
+      }
+      ol {
+        padding-left: 20px;
+      }
+      a {
+        color: #0d9488;
+      }
+      pre {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Install the Chrome extension</h1>
+      <p>
+        The AI Bookmark Organizer extension keeps your Chrome bookmarks and reading list in sync with this dashboard and adds
+        AI-driven organisation.
+      </p>
+      <ol>
+        <li>Download the repository or pull the latest changes so the <code>chrome-extension</code> folder is available locally.</li>
+        <li>Open <strong>chrome://extensions</strong>, enable <strong>Developer mode</strong>, and choose <strong>Load unpacked</strong>.</li>
+        <li>Select the <code>chrome-extension</code> directory from this project.</li>
+        <li>Click the extension icon and sign in with your Supabase account. Grant access when prompted.</li>
+        <li>Use <strong>Sync now</strong> or enable auto-sync to keep everything updated.</li>
+      </ol>
+      <p>
+        The extension communicates with <code>/api/import-chrome</code> using your Supabase access token. Make sure your Netlify
+        environment has the correct Supabase and Gemini credentials configured.
+      </p>
+      <p>
+        For packaging instructions see the <a href="https://github.com/Kejsan/v0-ai-bookmark-organizer/tree/main/chrome-extension" target="_blank" rel="noopener">Chrome extension README</a>.
+      </p>
+    </main>
+  </body>
+</html>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Key, Eye, EyeOff, Trash2, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 
 interface ApiKeyStatus {
   hasKey: boolean
@@ -22,10 +23,40 @@ export default function ApiKeyManager() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [status, setStatus] = useState<ApiKeyStatus>({ hasKey: false })
   const [message, setMessage] = useState("")
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true)
+  const [aiSuggestionsEnabled, setAiSuggestionsEnabled] = useState(true)
 
   useEffect(() => {
     checkKeyStatus()
+    try {
+      const autoSync = localStorage.getItem("settings:autoSync")
+      const aiSuggestions = localStorage.getItem("settings:aiSuggestions")
+      if (autoSync !== null) {
+        setAutoSyncEnabled(autoSync === "true")
+      }
+      if (aiSuggestions !== null) {
+        setAiSuggestionsEnabled(aiSuggestions === "true")
+      }
+    } catch (error) {
+      console.warn("Failed to load settings", error)
+    }
   }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("settings:autoSync", autoSyncEnabled ? "true" : "false")
+    } catch (error) {
+      console.warn("Failed to persist auto-sync setting", error)
+    }
+  }, [autoSyncEnabled])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("settings:aiSuggestions", aiSuggestionsEnabled ? "true" : "false")
+    } catch (error) {
+      console.warn("Failed to persist AI suggestions setting", error)
+    }
+  }, [aiSuggestionsEnabled])
 
   const checkKeyStatus = async () => {
     setIsLoading(true)
@@ -248,6 +279,30 @@ export default function ApiKeyManager() {
           <p>• Your API key is encrypted using AES-256-GCM encryption</p>
           <p>• It's only decrypted when making AI requests on your behalf</p>
           <p>• You can delete it anytime to disable AI features</p>
+        </div>
+
+        <div className="space-y-4 rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-700">Auto-sync with Chrome</p>
+              <p className="text-xs text-gray-500">
+                Allow the Chrome extension to push new bookmarks automatically when changes are detected.
+              </p>
+            </div>
+            <Switch checked={autoSyncEnabled} onCheckedChange={setAutoSyncEnabled} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-700">AI organization suggestions</p>
+              <p className="text-xs text-gray-500">
+                Enable Gemini-powered clustering and deduplication recommendations in your dashboard.
+              </p>
+            </div>
+            <Switch checked={aiSuggestionsEnabled} onCheckedChange={setAiSuggestionsEnabled} />
+          </div>
+          <p className="text-xs text-gray-400">
+            These preferences sync locally in your browser and inform the Chrome extension which features to activate.
+          </p>
         </div>
       </CardContent>
     </Card>

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "AI Bookmark Organizer Sync",
+  "version": "0.1.0",
+  "description": "Sync Chrome bookmarks and reading list items with AI Bookmark Organizer.",
+  "permissions": ["bookmarks", "readingList", "storage", "identity"],
+  "host_permissions": [
+    "https://ai-bookmark-organizer.netlify.app/*",
+    "https://mkqhfkkwaetrcxcigkxk.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "service_worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AI Bookmark Organizer"
+  },
+  "options_page": "options.html"
+}

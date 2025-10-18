@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, Plus, Settings, LogOut, Bookmark } from "lucide-react"
+import { Upload, Plus, Settings, LogOut, Bookmark, RefreshCw } from "lucide-react"
 import UploadDropzone from "@/components/upload-dropzone"
 import AddLinkForm from "@/components/add-link-form"
 import ChatPanel from "@/components/chat-panel"
@@ -71,6 +71,14 @@ export default function Dashboard() {
                 <Plus className="h-4 w-4" />
                 Add Link
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => window.open("/chrome-extension/README.html", "_blank")}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Sync from Chrome
+              </Button>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -106,22 +114,14 @@ export default function Dashboard() {
               <CardContent className="p-6">
                 <h2 className="text-xl font-semibold text-[#000080] mb-4">Welcome to AI Bookmark Organizer</h2>
                 <div className="space-y-3 text-gray-600">
-                  <p>
-                    🚀 <strong>Import your Chrome bookmarks</strong> - Export from Chrome and upload the HTML file
-                  </p>
-                  <p>
-                    🔗 <strong>Add individual links</strong> - Manually add bookmarks with custom categories
-                  </p>
-                  <p>
-                    🤖 <strong>AI-powered organization</strong> - Get summaries and smart categorization
-                  </p>
-                  <p>
-                    🔍 <strong>Semantic search</strong> - Ask the AI assistant to find tools for specific tasks
-                  </p>
+                  <p>🚀 <strong>Install the Chrome extension</strong> to sync bookmarks and reading list entries in real time.</p>
+                  <p>🔗 <strong>Add individual links</strong> or drop Netscape files to import legacy exports.</p>
+                  <p>🤖 <strong>AI-powered organization</strong> suggests categories and highlights duplicates.</p>
+                  <p>🔍 <strong>Semantic search</strong> - Ask the AI assistant to find tools for specific tasks.</p>
                 </div>
                 <div className="mt-4 p-4 bg-[#54a09b]/10 rounded-lg border border-[#54a09b]/20">
                   <p className="text-sm text-[#54a09b] font-medium">
-                    💡 Don't forget to add your Gemini API key in Settings to enable AI features!
+                    💡 Don't forget to add your Gemini API key in Settings and enable auto-sync so the extension can keep everything updated.
                   </p>
                 </div>
               </CardContent>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI Bookmark Organizer Settings</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="logo" aria-hidden="true">🔖</span>
+        <div>
+          <h1>Extension settings</h1>
+          <p class="status-text">Manage auto-sync and AI preferences.</p>
+        </div>
+      </header>
+      <section class="settings">
+        <label class="toggle">
+          <input type="checkbox" id="autoSync" />
+          <span>Auto-sync when bookmarks change</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="includeReadingList" checked />
+          <span>Include Chrome Reading List</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="sendAiSignals" checked />
+          <span>Send AI organization signals</span>
+        </label>
+      </section>
+      <footer>
+        <p>Preferences sync with the popup and background worker.</p>
+      </footer>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

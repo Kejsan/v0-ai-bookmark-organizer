@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
 // Check if Supabase environment variables are available
@@ -65,4 +65,27 @@ export function createClient() {
   )
 
   return supabase
+}
+
+export function createClientWithAccessToken(token: string): SupabaseClient {
+  if (!isSupabaseConfigured()) {
+    throw new Error("Supabase environment variables are not set")
+  }
+
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+        detectSessionInUrl: false,
+      },
+    },
+  )
 }

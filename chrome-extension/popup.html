@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AI Bookmark Organizer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="logo" aria-hidden="true">🔖</span>
+        <div>
+          <h1>AI Bookmark Organizer</h1>
+          <p class="status-text">Connect your account to sync bookmarks.</p>
+        </div>
+      </header>
+
+      <section class="auth-section">
+        <button id="login" class="primary">Sign in with Supabase</button>
+        <button id="logout" class="link">Sign out</button>
+      </section>
+
+      <section class="sync-section">
+        <button id="sync" class="primary">Sync now</button>
+        <div class="sync-details"></div>
+      </section>
+
+      <section class="settings">
+        <label class="toggle">
+          <input type="checkbox" id="autoSync" />
+          <span>Auto-sync when bookmarks change</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="includeReadingList" checked />
+          <span>Include Chrome Reading List</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="sendAiSignals" checked />
+          <span>Send AI organization signals</span>
+        </label>
+      </section>
+
+      <footer>
+        <a href="https://ai-bookmark-organizer.netlify.app" target="_blank" rel="noopener noreferrer">
+          Open dashboard
+        </a>
+      </footer>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
