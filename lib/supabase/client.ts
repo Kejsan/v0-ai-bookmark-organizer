@@ -1,13 +1,15 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
 
 // Check if Supabase environment variables are available
 export function isSupabaseConfigured() {
-  return (
-    typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL.length > 0 &&
-    typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
-  )
+  const url =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? undefined
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+    process.env.SUPABASE_ANON_KEY ??
+    undefined
+
+  return Boolean(url && url.length > 0 && anonKey && anonKey.length > 0)
 }
 
 export function createClient() {
@@ -30,5 +32,8 @@ export function createClient() {
     } as any
   }
 
-  return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  return createBrowserClient(
+    (process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!,
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY)!,
+  )
 }
