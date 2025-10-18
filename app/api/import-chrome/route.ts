@@ -99,6 +99,7 @@ export async function POST(request: NextRequest) {
 
   const bookmarks = payload.bookmarks ?? []
   const readingList = payload.readingList ?? []
+  const autoCategorize = payload.autoCategorize !== false
 
   if (bookmarks.length === 0 && readingList.length === 0) {
     return NextResponse.json({ error: "No bookmark data provided" }, { status: 400 })
@@ -124,6 +125,22 @@ export async function POST(request: NextRequest) {
   let failedCount = 0
   const duplicates: Array<{ url: string; existingId: number }> = []
   const errors: string[] = []
+
+  let aiEnabled = false
+  if (autoCategorize) {
+    const { data: geminiKeyRow, error: geminiKeyError } = await supabase
+      .from("user_api_credentials")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("provider", "gemini")
+      .maybeSingle()
+
+    if (geminiKeyRow && !geminiKeyError) {
+      aiEnabled = true
+    } else if (geminiKeyError) {
+      console.warn("Failed to check Gemini key presence", geminiKeyError)
+    }
+  }
 
   async function ensureCategory(path: string): Promise<number | null> {
     const safePath = path.trim()
@@ -211,15 +228,17 @@ export async function POST(request: NextRequest) {
     }
 
     let summary = metadata.description || entry.description || metadata.title || entry.url
-    try {
-      summary = await summarizeUrlWithGemini(
-        user.id,
-        entry.url,
-        metadata.title ?? entry.title ?? undefined,
-        metadata.description ?? entry.description ?? undefined,
-      )
-    } catch (error) {
-      console.warn("Gemini summary failed", error)
+    if (aiEnabled) {
+      try {
+        summary = await summarizeUrlWithGemini(
+          user.id,
+          entry.url,
+          metadata.title ?? entry.title ?? undefined,
+          metadata.description ?? entry.description ?? undefined,
+        )
+      } catch (error) {
+        console.warn("Gemini summary failed", error)
+      }
     }
 
     const bookmarkInsert: Record<string, any> = {
@@ -263,11 +282,13 @@ export async function POST(request: NextRequest) {
     }
 
     insertedCount++
-    const embeddingText = [bookmark.title, bookmark.url, bookmark.description].filter(Boolean).join(" ")
-    if (embeddingText) {
-      upsertBookmarkEmbedding(user.id, bookmark.id, embeddingText).catch((error) =>
-        console.warn("Failed to upsert embedding", error),
-      )
+    if (aiEnabled) {
+      const embeddingText = [bookmark.title, bookmark.url, bookmark.description].filter(Boolean).join(" ")
+      if (embeddingText) {
+        upsertBookmarkEmbedding(user.id, bookmark.id, embeddingText).catch((error) =>
+          console.warn("Failed to upsert embedding", error),
+        )
+      }
     }
   }
 

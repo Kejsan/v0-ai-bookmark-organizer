@@ -58,7 +58,6 @@
     "input-otp": "1.4.1",
     "jsdom": "latest",
     "lucide-react": "^0.454.0",
-    "netscape-bookmark-parser": "^1.1.4",
     "next": "15.2.4",
     "next-themes": "latest",
     "path": "latest",

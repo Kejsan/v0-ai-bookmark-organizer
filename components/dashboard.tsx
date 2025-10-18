@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, Plus, Settings, LogOut, Bookmark, CloudSync } from "lucide-react"
+import { Upload, Plus, Settings, LogOut, Bookmark, RefreshCw } from "lucide-react"
 import UploadDropzone from "@/components/upload-dropzone"
 import AddLinkForm from "@/components/add-link-form"
 import ChatPanel from "@/components/chat-panel"
@@ -76,7 +76,7 @@ export default function Dashboard() {
                 onClick={() => window.open("/chrome-extension/README.html", "_blank")}
                 className="flex items-center gap-2"
               >
-                <CloudSync className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
                 Sync from Chrome
               </Button>
             </div>
