@@ -126,21 +126,7 @@ export async function POST(request: NextRequest) {
   const duplicates: Array<{ url: string; existingId: number }> = []
   const errors: string[] = []
 
-  let aiEnabled = false
-  if (autoCategorize) {
-    const { data: geminiKeyRow, error: geminiKeyError } = await supabase
-      .from("user_api_credentials")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("provider", "gemini")
-      .maybeSingle()
-
-    if (geminiKeyRow && !geminiKeyError) {
-      aiEnabled = true
-    } else if (geminiKeyError) {
-      console.warn("Failed to check Gemini key presence", geminiKeyError)
-    }
-  }
+  const aiEnabled = autoCategorize && !!process.env.GEMINI_API_KEY
 
   async function ensureCategory(path: string): Promise<number | null> {
     const safePath = path.trim()

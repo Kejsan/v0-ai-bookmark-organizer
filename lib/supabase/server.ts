@@ -14,7 +14,7 @@ export function isSupabaseConfigured() {
   return Boolean(url && url.length > 0 && anonKey && anonKey.length > 0)
 }
 
-export function createClient() {
+export async function createClient() {
   if (!isSupabaseConfigured()) {
     console.warn("Supabase environment variables are not set. Using dummy client.")
     return {
@@ -38,35 +38,26 @@ export function createClient() {
     } as any
   }
 
-  const cookieStore = cookies()
-
-  const canMutateCookies = typeof cookieStore.set === "function"
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
+        getAll() {
+          return cookieStore.getAll()
         },
-        set(name: string, value: string, options?: CookieOptions) {
-          if (!canMutateCookies) {
-            console.warn(
-              "Attempted to set Supabase auth cookie in a read-only context. Ensure this mutation runs inside a route handler or server action.",
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
             )
-            return
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
           }
-          cookieStore.set(name, value, options)
-        },
-        remove(name: string, options?: CookieOptions) {
-          if (!canMutateCookies) {
-            console.warn(
-              "Attempted to clear Supabase auth cookie in a read-only context. Ensure this mutation runs inside a route handler or server action.",
-            )
-            return
-          }
-          cookieStore.set(name, "", { ...options, maxAge: 0 })
         },
       },
     },

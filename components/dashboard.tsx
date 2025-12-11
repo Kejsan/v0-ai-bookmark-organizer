@@ -8,7 +8,7 @@ import { Upload, Plus, Settings, LogOut, Bookmark, RefreshCw } from "lucide-reac
 import UploadDropzone from "@/components/upload-dropzone"
 import AddLinkForm from "@/components/add-link-form"
 import ChatPanel from "@/components/chat-panel"
-import ApiKeyManager from "@/components/api-key-manager"
+import SettingsPanel from "@/components/settings-panel"
 import BookmarkList from "@/components/bookmark-list"
 import { signOut } from "@/lib/actions"
 
@@ -105,7 +105,7 @@ export default function Dashboard() {
               </TabsContent>
 
               <TabsContent value="settings" className="mt-6">
-                <ApiKeyManager />
+                <SettingsPanel />
               </TabsContent>
             </Tabs>
 
@@ -118,11 +118,6 @@ export default function Dashboard() {
                   <p>🔗 <strong>Add individual links</strong> or drop Netscape files to import legacy exports.</p>
                   <p>🤖 <strong>AI-powered organization</strong> suggests categories and highlights duplicates.</p>
                   <p>🔍 <strong>Semantic search</strong> - Ask the AI assistant to find tools for specific tasks.</p>
-                </div>
-                <div className="mt-4 p-4 bg-[#54a09b]/10 rounded-lg border border-[#54a09b]/20">
-                  <p className="text-sm text-[#54a09b] font-medium">
-                    💡 Don't forget to add your Gemini API key in Settings and enable auto-sync so the extension can keep everything updated.
-                  </p>
                 </div>
               </CardContent>
             </Card>

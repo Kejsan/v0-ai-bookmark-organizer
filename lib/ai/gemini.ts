@@ -1,45 +1,14 @@
-import crypto from "crypto"
-import { createClient } from "@/lib/supabase/server"
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
 
-const ALGO = "aes-256-gcm"
-
-export async function getUserGeminiKey(userId: string): Promise<string> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from("user_api_credentials")
-    .select("encrypted_key, nonce")
-    .eq("user_id", userId)
-    .eq("provider", "gemini")
-    .single()
-
-  if (error || !data) {
-    throw new Error("Gemini API key not found. Please add your API key in account settings.")
+function getApiKey(): string {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured in the server environment.")
   }
-
-  const masterKey = process.env.APP_KMS_MASTER_KEY
-  if (!masterKey) {
-    throw new Error("Master encryption key not configured")
-  }
-
-  const key = Buffer.from(masterKey, "base64")
-  const nonce = Buffer.from(data.nonce, "base64")
-  const encryptedData = Buffer.from(data.encrypted_key, "base64")
-
-  // Split encrypted data and auth tag (last 16 bytes)
-  const authTag = encryptedData.slice(-16)
-  const ciphertext = encryptedData.slice(0, -16)
-
-  const decipher = crypto.createDecipheriv(ALGO, key, nonce)
-  decipher.setAuthTag(authTag)
-
-  let decrypted = decipher.update(ciphertext)
-  decrypted = Buffer.concat([decrypted, decipher.final()])
-
-  return decrypted.toString("utf8")
+  return GEMINI_API_KEY
 }
 
 export async function embedTextWithGemini(userId: string, text: string): Promise<number[]> {
-  const apiKey = await getUserGeminiKey(userId)
+  const apiKey = getApiKey()
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedText?key=${apiKey}`,
@@ -75,7 +44,7 @@ export async function summarizeUrlWithGemini(
   title?: string,
   description?: string,
 ): Promise<string> {
-  const apiKey = await getUserGeminiKey(userId)
+  const apiKey = getApiKey()
 
   const prompt = `You are organizing a personal toolbox of web links. Summarize this URL in 1-2 sentences for quick scanning.
 
@@ -142,7 +111,7 @@ export async function suggestBookmarkCategories(
     return []
   }
 
-  const apiKey = await getUserGeminiKey(userId)
+  const apiKey = getApiKey()
   const prompt = `Cluster the following bookmarks into thematic categories. Respond only with JSON in the form [{"category": string, "bookmarkIds": number[], "rationale": string}].
 
 ${bookmarks
