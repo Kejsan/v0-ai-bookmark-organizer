@@ -37,8 +37,6 @@ export async function GET(request: NextRequest) {
         { count: "exact" }
       )
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .range(start, end)
 
     if (category) {
       const categoryId = Number(category)
@@ -53,12 +51,17 @@ export async function GET(request: NextRequest) {
       query = query.eq("source", source)
     }
 
+    // Apply sorting and pagination last
+    query = query
+      .order("created_at", { ascending: false })
+      .range(start, end)
+
     const { data, error, count } = await query
 
     if (error) {
       console.error("Failed to fetch bookmarks:", error)
       return NextResponse.json(
-        { error: "Failed to fetch bookmarks" },
+        { error: "Failed to fetch bookmarks", details: error.message },
         { status: 500 },
       )
     }
