@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -104,7 +104,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
       } else {
         setBookmarks(records)
         if (!selectedCategory) {
-          setOrganizeResult((current) =>
+          setOrganizeResult((current: OrganizeResult | null) =>
             current ? { ...current, bookmarks: records } : current,
           )
         }
@@ -242,12 +242,12 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
     async (id: number) => {
       await handleDelete(id)
       if (organizeResult) {
-        setOrganizeResult((prev) =>
+        setOrganizeResult((prev: OrganizeResult | null) =>
           prev
             ? {
               ...prev,
               duplicates: prev.duplicates.filter(
-                (dup) => dup.firstId !== id && dup.secondId !== id,
+                (dup: { firstId: number, secondId: number, score: number }) => dup.firstId !== id && dup.secondId !== id,
               ),
             }
             : prev,
@@ -262,13 +262,13 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
       if (selectedIds.size === bookmarks.length) {
         setSelectedIds(new Set())
       } else {
-        setSelectedIds(new Set(bookmarks.map((b) => b.id)))
+        setSelectedIds(new Set(bookmarks.map((b: BookmarkRecord) => b.id)))
       }
     }
   }, [activeTab, bookmarks, selectedIds])
 
   const toggleSelection = useCallback((id: number) => {
-    setSelectedIds((prev) => {
+    setSelectedIds((prev: Set<number>) => {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
@@ -371,12 +371,12 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                   <p className="text-gray-500">No bookmarks found.</p>
                 ) : (
                   <ul className="space-y-4">
-                    {bookmarks.map((bookmark) => (
+                    {bookmarks.map((bookmark: BookmarkRecord) => (
                       <li
                         key={bookmark.id}
                         className="flex flex-col gap-4 rounded-lg border border-gray-200 p-4 md:flex-row md:items-center md:justify-between"
                         draggable
-                        onDragStart={(event) => {
+                        onDragStart={(event: DragEvent) => {
                           event.dataTransfer.setData("text/bookmark-id", String(bookmark.id))
                         }}
                       >
@@ -436,6 +436,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -451,7 +452,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
               <p className="text-gray-500">Your Chrome reading list is empty.</p>
             ) : (
               <ul className="space-y-4">
-                {readingList.map((item) => (
+                {readingList.map((item: BookmarkRecord) => (
                   <li
                     key={item.id}
                     className="flex flex-col gap-4 rounded-lg border border-gray-200 p-4 md:flex-row md:items-center md:justify-between"
@@ -530,7 +531,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                     <p className="text-sm text-gray-500">No category recommendations right now.</p>
                   ) : (
                     <ul className="space-y-4">
-                      {organizeResult.categories.map((suggestion) => (
+                      {organizeResult.categories.map((suggestion: { category: string; bookmarkIds: number[]; rationale?: string }) => (
                         <li key={suggestion.category} className="rounded-lg border border-gray-200 p-4">
                           <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                             <div>
@@ -578,7 +579,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                     <p className="text-sm text-gray-500">No duplicates detected.</p>
                   ) : (
                     <ul className="space-y-4">
-                      {organizeResult.duplicates.map((duplicate) => {
+                      {organizeResult.duplicates.map((duplicate: { firstId: number; secondId: number; score: number }) => {
                         const first = bookmarkLookup.get(duplicate.firstId)
                         const second = bookmarkLookup.get(duplicate.secondId)
                         if (!first || !second) return null
