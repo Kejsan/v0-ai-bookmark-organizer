@@ -115,18 +115,18 @@ export async function suggestBookmarkCategories(
   const prompt = `Cluster the following bookmarks into thematic categories. Respond only with JSON in the form [{"category": string, "bookmarkIds": number[], "rationale": string}].
 
 ${bookmarks
-    .map((bookmark, index) => {
-      const parts = [
-        `Bookmark #${index + 1}`,
-        `ID: ${bookmark.id}`,
-        `Title: ${bookmark.title || "Untitled"}`,
-        bookmark.description ? `Description: ${bookmark.description}` : undefined,
-        bookmark.url ? `URL: ${bookmark.url}` : undefined,
-      ].filter(Boolean)
+      .map((bookmark, index) => {
+        const parts = [
+          `Bookmark #${index + 1}`,
+          `ID: ${bookmark.id}`,
+          `Title: ${bookmark.title || "Untitled"}`,
+          bookmark.description ? `Description: ${bookmark.description}` : undefined,
+          bookmark.url ? `URL: ${bookmark.url}` : undefined,
+        ].filter(Boolean)
 
-      return parts.join("\n")
-    })
-    .join("\n\n")}
+        return parts.join("\n")
+      })
+      .join("\n\n")}
 
 Group similar bookmarks under meaningful category names and cite the bookmark IDs in each group.`
 
@@ -245,4 +245,74 @@ export async function suggestDuplicateBookmarks(
   }
 
   return suggestions.sort((a, b) => b.score - a.score)
+}
+
+export interface EnrichedBookmark {
+  id: number
+  summary: string
+  tags: string[]
+}
+
+export async function enrichBookmarksBatch(
+  userId: string,
+  bookmarks: BookmarkSummaryInput[],
+): Promise<EnrichedBookmark[]> {
+  if (bookmarks.length === 0) {
+    return []
+  }
+
+  const apiKey = getApiKey()
+
+  // Create a concise prompt for batch processing
+  const prompt = `You are a helpful bookmark assistant. Analyze these bookmarks and provide a short 1-sentence summary and 1-3 relevant tags for each.
+  
+  Return ONLY a JSON array of objects with the following format:
+  [{"id": 123, "summary": "...", "tags": ["tag1", "tag2"]}]
+  
+  Bookmarks to analyze:
+  ${bookmarks
+      .map(
+        (b) =>
+          `ID: ${b.id}\nTitle: ${b.title || "Untitled"}\nURL: ${b.url}\nDescription: ${b.description || "N/A"
+          }\n---`
+      )
+      .join("\n")}
+  `
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            responseMimeType: "application/json",
+          },
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+    if (!textResponse) {
+      console.warn("Empty response from Gemini")
+      return []
+    }
+
+    const parsed = JSON.parse(textResponse) as EnrichedBookmark[]
+    return parsed
+  } catch (error) {
+    console.error("Batch enrichment failed:", error)
+    return []
+  }
 }

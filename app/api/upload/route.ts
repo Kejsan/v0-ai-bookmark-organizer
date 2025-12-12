@@ -40,150 +40,157 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No bookmarks found in file" }, { status: 400 })
     }
 
-    let insertedCount = 0
-    let failedCount = 0
-    const errors: string[] = []
+    // 1. Flatten the tree to identify all categories and bookmarks
+    const flattenedBookmarks: any[] = []
+    const rawCategories = new Set<string>()
 
-    // Helper function to ensure category path exists
-    async function ensureCategory(path: string): Promise<number | null> {
-      if (!path) return null
+    function traverse(items: any[], pathPrefix: string[] = []) {
+      for (const item of items) {
+        if ("children" in item) {
+          const newPath = [...pathPrefix, item.name]
+          rawCategories.add(newPath.join("/"))
+          traverse(item.children, newPath)
+        } else {
+          const folderPath = pathPrefix.join("/")
+          if (folderPath) rawCategories.add(folderPath)
 
-      const pathParts = path.split("/").filter(Boolean)
-      let parentId: number | null = null
-      let currentPath = ""
-
-      for (const name of pathParts) {
-        currentPath = currentPath ? `${currentPath}/${name}` : name
-
-        // Check if category already exists
-        const { data: existing } = await supabase
-          .from("categories")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("path", currentPath)
-          .maybeSingle()
-
-        if (existing?.id) {
-          parentId = existing.id
-          continue
-        }
-
-        // Create new category
-        const { data: created, error } = await supabase
-          .from("categories")
-          .insert({
-            user_id: user.id,
-            name,
-            parent_id: parentId,
-            path: currentPath,
+          flattenedBookmarks.push({
+            ...item,
+            folderPath: folderPath || "Imported",
           })
-          .select("id")
-          .single()
-
-        if (error) {
-          console.error("Failed to create category:", error)
-          throw error
         }
-
-        parentId = created.id
       }
+    }
 
+    traverse(bookmarkTree)
+
+    // 2. Load existing categories into memory
+    const { data: existingTabs } = await supabase
+      .from("categories")
+      .select("id, path")
+      .eq("user_id", user.id)
+
+    const categoryMap = new Map<string, number>()
+    if (existingTabs) {
+      for (const cat of existingTabs) {
+        categoryMap.set(cat.path, cat.id)
+      }
+    }
+
+    // Helper: Ensure category exists (using local cache first)
+    // We still do this sequentially or carefully because parent IDs depend on previous inserts
+    // But since we have the full map, we only insert what's missing.
+    async function ensureCategoryPath(fullPath: string): Promise<number | null> {
+      if (!fullPath) return null
+      if (categoryMap.has(fullPath)) return categoryMap.get(fullPath)!
+
+      const parts = fullPath.split("/")
+      let currentPath = ""
+      let parentId: number | null = null
+
+      for (const part of parts) {
+        currentPath = currentPath ? `${currentPath}/${part}` : part
+
+        if (categoryMap.has(currentPath)) {
+          parentId = categoryMap.get(currentPath)!
+        } else {
+          // Create it
+          const { data: created, error } = await supabase
+            .from("categories")
+            .insert({
+              user_id: user.id,
+              name: part,
+              path: currentPath,
+              parent_id: parentId
+            })
+            .select("id")
+            .single()
+
+          if (error || !created) {
+            console.error(`Failed to create category ${currentPath}`, error)
+            // If update failed (race condition?), try fetching it
+            const { data: retry } = await supabase
+              .from("categories")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("path", currentPath)
+              .single()
+
+            if (retry) {
+              parentId = retry.id
+              categoryMap.set(currentPath, retry.id)
+              continue
+            }
+            return parentId // Fallback to last known parent
+          }
+
+          parentId = created.id
+          categoryMap.set(currentPath, created.id)
+        }
+      }
       return parentId
     }
 
-    // Process bookmarks recursively
-    async function processBookmarks(items: any[], pathPrefix: string[] = []): Promise<void> {
-      for (const item of items) {
-        if ("children" in item) {
-          // This is a folder
-          await processBookmarks(item.children, [...pathPrefix, item.name])
-        } else {
-          // This is a bookmark
-          const folderPath = pathPrefix.join("/")
+    // 3. Ensure all needed categories exist
+    const sortedPaths = Array.from(rawCategories).sort()
+    for (const path of sortedPaths) {
+      await ensureCategoryPath(path)
+    }
 
-          try {
-            const categoryId = await ensureCategory(folderPath || "Imported")
+    // 4. Prepare batch inserts
+    const validBookmarks = []
+    const errors: string[] = []
 
-            // Validate URL before fetching
-            validateUrl(item.href)
-            
-            // SKIP metadata fetching to prevent timeouts
-            // const metadata = await fetchPageMetadata(item.href)
-            const metadata = { 
-              title: item.title || item.href, 
-              description: "", 
-              favicon: null 
-            }
+    for (const item of flattenedBookmarks) {
+      try {
+        validateUrl(item.href)
 
-            // SKIP AI summary for now
-            const summary = ""
-            /*
-            try {
-              summary = await summarizeUrlWithGemini(user.id, item.href, metadata.title, metadata.description)
-            } catch (error) {
-              console.warn("Failed to generate summary:", error)
-              summary = metadata.description || metadata.title || "No description available"
-            }
-            */
+        // Resolve category ID from map (should exist now)
+        const categoryId = categoryMap.get(item.folderPath) || await ensureCategoryPath(item.folderPath) || null
 
-            // Insert bookmark
-            const { data: bookmark, error: bookmarkError } = await supabase
-              .from("bookmarks")
-              .insert({
-                user_id: user.id,
-                category_id: categoryId,
-                title: metadata.title || item.title,
-                url: item.href,
-                description: summary,
-                favicon_url: metadata.favicon,
-                folder_path: folderPath,
-              })
-              .select("id, title, url, description")
-              .single()
-
-            if (bookmarkError) {
-              console.error("Failed to insert bookmark:", bookmarkError)
-              failedCount++
-              errors.push(bookmarkError.message)
-              continue // Skip this bookmark but continue processing others
-            }
-
-            insertedCount++
-
-            // Create embedding (async, don't wait)
-            if (bookmark) {
-              const embeddingText = [bookmark.title, bookmark.url, bookmark.description].filter(Boolean).join(" ")
-
-              // Don't await - let embeddings process in background
-              upsertBookmarkEmbedding(user.id, bookmark.id, embeddingText).catch((error) =>
-                console.warn("Embedding failed:", error),
-              )
-            }
-          } catch (error) {
-            console.error(`Failed to process bookmark ${item.href}:`, error)
-            failedCount++
-            if (error instanceof Error) {
-              errors.push(error.message)
-            }
-            // Continue processing other bookmarks
-          }
-        }
+        validBookmarks.push({
+          user_id: user.id,
+          category_id: categoryId,
+          title: item.title || item.href,
+          url: item.href,
+          // Use simple fallback description
+          description: item.title || "",
+          // favicon_url: null, // Let frontend generic icon handle null
+          folder_path: item.folderPath,
+        })
+      } catch (e: any) {
+        errors.push(e.message)
       }
     }
 
-    await processBookmarks(bookmarkTree)
+    if (validBookmarks.length === 0) {
+      return NextResponse.json({ imported: 0, failed: errors.length, errors }, { status: 400 })
+    }
 
-    const result = {
+    // 5. Batch insert in chunks
+    const CHUNK_SIZE = 100
+    let insertedCount = 0
+    let failedCount = 0
+
+    for (let i = 0; i < validBookmarks.length; i += CHUNK_SIZE) {
+      const chunk = validBookmarks.slice(i, i + CHUNK_SIZE)
+      const { error } = await supabase.from("bookmarks").insert(chunk)
+
+      if (error) {
+        console.error("Batch insert failed:", error)
+        failedCount += chunk.length // All in this chunk failed
+        errors.push(`Batch ${i / CHUNK_SIZE + 1} failed: ${error.message}`)
+      } else {
+        insertedCount += chunk.length
+      }
+    }
+
+    return NextResponse.json({
       imported: insertedCount,
-      failed: failedCount,
-      errors,
-    }
+      failed: failedCount + errors.length, // approximation
+      errors
+    })
 
-    if (insertedCount === 0) {
-      return NextResponse.json(result, { status: 400 })
-    }
-
-    return NextResponse.json(result)
   } catch (error) {
     console.error("Upload error:", error)
     return NextResponse.json({ error: "Failed to process bookmark file" }, { status: 500 })

@@ -99,200 +99,159 @@ export async function POST(request: NextRequest) {
 
   const bookmarks = payload.bookmarks ?? []
   const readingList = payload.readingList ?? []
-  const autoCategorize = payload.autoCategorize !== false
 
   if (bookmarks.length === 0 && readingList.length === 0) {
     return NextResponse.json({ error: "No bookmark data provided" }, { status: 400 })
   }
 
   const allEntries = [...bookmarks, ...readingList]
-  const uniqueUrls = Array.from(new Set(allEntries.map((item) => item.url))).filter(Boolean)
 
-  const { data: existingBookmarks } = await supabase
-    .from("bookmarks")
-    .select("id, url, source")
-    .in("url", uniqueUrls)
-    .eq("user_id", user.id)
+  // 1. Check for potential duplicates (bulk fetch)
+  const chunkedUrls = []
+  const entriesWithUrl = allEntries.filter(e => e.url)
+  const allUrls = Array.from(new Set(entriesWithUrl.map(e => e.url)))
 
-  const duplicateMap = new Map<string, { id: number; source: string | null }>()
-  existingBookmarks?.forEach((item) => {
-    if (item.url) {
-      duplicateMap.set(item.url, { id: item.id, source: item.source ?? null })
+  // Supabase 'in' filter limit is somewhat high but let's be safe if thousands of URLs
+  const DUPE_CHECK_CHUNK = 200
+  const existingSet = new Set<string>()
+
+  for (let i = 0; i < allUrls.length; i += DUPE_CHECK_CHUNK) {
+    const batch = allUrls.slice(i, i + DUPE_CHECK_CHUNK)
+    const { data: found } = await supabase
+      .from("bookmarks")
+      .select("url")
+      .eq("user_id", user.id)
+      .in("url", batch)
+
+    if (found) {
+      found.forEach(b => existingSet.add(b.url))
     }
-  })
+  }
 
-  let insertedCount = 0
-  let failedCount = 0
-  const duplicates: Array<{ url: string; existingId: number }> = []
-  const errors: string[] = []
+  const duplicates = []
+  const uniqueEntries = []
 
-  const aiEnabled = autoCategorize && !!process.env.GEMINI_API_KEY
-
-  async function ensureCategory(path: string): Promise<number | null> {
-    const safePath = path.trim()
-    if (!safePath) {
-      return null
+  for (const entry of allEntries) {
+    if (existingSet.has(entry.url)) {
+      duplicates.push({ url: entry.url, existingId: 0 }) // We didn't fetch ID to save BW, client just wants to know it exists
+    } else {
+      uniqueEntries.push(entry)
+      // Add to set to prevent duplicate duplicates within the payload itself
+      existingSet.add(entry.url)
     }
+  }
 
-    const pathParts = safePath.split("/").filter(Boolean)
-    let parentId: number | null = null
+  // 2. Resolve Categories (Batch optimized)
+  const categoryMap = new Map<string, number>()
+  const { data: existingCats } = await supabase.from("categories").select("id, path").eq("user_id", user.id)
+  if (existingCats) {
+    existingCats.forEach(c => categoryMap.set(c.path, c.id))
+  }
+
+  async function ensureCategoryPath(fullPath: string): Promise<number | null> {
+    if (!fullPath) return null
+    const safePath = fullPath.trim()
+    if (!safePath) return null
+
+    if (categoryMap.has(safePath)) return categoryMap.get(safePath)!
+
+    const parts = safePath.split("/").filter(Boolean)
     let currentPath = ""
+    let parentId: number | null = null
 
-    for (const segment of pathParts) {
-      currentPath = currentPath ? `${currentPath}/${segment}` : segment
+    for (const part of parts) {
+      currentPath = currentPath ? `${currentPath}/${part}` : part
 
-      const { data: existing } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("path", currentPath)
-        .maybeSingle()
+      if (categoryMap.has(currentPath)) {
+        parentId = categoryMap.get(currentPath)!
+      } else {
+        // Create 
+        const { data: created } = await supabase
+          .from("categories")
+          .insert({
+            user_id: user.id,
+            name: part,
+            path: currentPath,
+            parent_id: parentId
+          })
+          .select("id")
+          .single()
 
-      if (existing?.id) {
-        parentId = existing.id
-        continue
+        if (created) {
+          parentId = created.id
+          categoryMap.set(currentPath, created.id)
+        } else {
+          // Race condition lookup
+          const { data: found } = await supabase.from("categories").select("id").eq("path", currentPath).single()
+          if (found) {
+            parentId = found.id
+            categoryMap.set(currentPath, found.id)
+          }
+        }
       }
-
-      const { data: created, error } = await supabase
-        .from("categories")
-        .insert({
-          user_id: user.id,
-          name: segment,
-          parent_id: parentId,
-          path: currentPath,
-        })
-        .select("id")
-        .single()
-
-      if (error || !created) {
-        throw error ?? new Error("Failed to create category")
-      }
-
-      parentId = created.id
     }
-
     return parentId
   }
 
-  async function processEntry(entry: ChromeBookmarkPayload, options?: { source?: string }) {
+  // Pre-scan categories
+  const pathsToEnsure = new Set<string>()
+  uniqueEntries.forEach(e => {
+    const p = extractFolderPath(e)
+    if (p) pathsToEnsure.add(p)
+  })
+
+  // Ensure all sorted paths
+  for (const p of Array.from(pathsToEnsure).sort()) {
+    await ensureCategoryPath(p)
+  }
+
+  // 3. Prepare Bulk Insert
+  const toInsert = []
+  let failedCount = 0
+  const errors: string[] = []
+
+  for (const entry of uniqueEntries) {
     try {
       validateUrl(entry.url)
-    } catch (error) {
+      const folderPath = extractFolderPath(entry)
+      const categoryId = categoryMap.get(folderPath) || null
+
+      const isRead = entry.isRead ?? (entry.status ? entry.status === "READ" : undefined)
+
+      toInsert.push({
+        user_id: user.id,
+        title: entry.title || entry.url,
+        url: entry.url,
+        description: entry.description || "",
+        favicon_url: entry.faviconUrl || null,
+        category_id: categoryId,
+        folder_path: folderPath,
+        source: entry.source || "chrome",
+        is_read: typeof isRead === "boolean" ? isRead : false,
+        created_at: parseDate(entry.dateAdded),
+        updated_at: parseDate(entry.dateGroupModified)
+      })
+    } catch (e: any) {
       failedCount++
-      if (error instanceof Error) {
-        errors.push(error.message)
-      }
-      return
-    }
-
-    if (duplicateMap.has(entry.url)) {
-      const duplicate = duplicateMap.get(entry.url)!
-      duplicates.push({ url: entry.url, existingId: duplicate.id })
-      return
-    }
-
-    const folderPath = extractFolderPath(entry)
-    let categoryId: number | null = null
-    try {
-      categoryId = await ensureCategory(folderPath)
-    } catch {
-      failedCount++
-      errors.push(`Failed to ensure category for ${entry.url}`)
-      return
-    }
-
-    // SKIP metadata fetching to prevent timeouts
-    const metadata = {
-      title: entry.title ?? entry.url,
-      description: entry.description ?? null,
-      favicon: entry.faviconUrl ?? null,
-    }
-    /*
-    try {
-      metadata = await fetchPageMetadata(entry.url)
-    } catch (error) {
-      console.warn("Failed to fetch metadata", error)
-      metadata = {
-        title: entry.title ?? entry.url,
-        description: entry.description ?? null,
-        favicon: entry.faviconUrl ?? null,
-      }
-    }
-    */
-
-    let summary = metadata.description || entry.description || metadata.title || entry.url
-    /*
-    if (aiEnabled) {
-      try {
-        summary = await summarizeUrlWithGemini(
-          user.id,
-          entry.url,
-          metadata.title ?? entry.title ?? undefined,
-          metadata.description ?? entry.description ?? undefined,
-        )
-      } catch (error) {
-        console.warn("Gemini summary failed", error)
-      }
-    }
-    */
-
-    const bookmarkInsert: Record<string, any> = {
-      user_id: user.id,
-      title: metadata.title || entry.title || entry.url,
-      url: entry.url,
-      description: summary,
-      favicon_url: metadata.favicon || entry.faviconUrl || null,
-      category_id: categoryId,
-      folder_path: folderPath,
-    }
-
-    const source = options?.source ?? entry.source
-    if (source) {
-      bookmarkInsert.source = source
-    }
-    const isRead = entry.isRead ?? (entry.status ? entry.status === "READ" : undefined)
-    if (typeof isRead === "boolean") {
-      bookmarkInsert.is_read = isRead
-    }
-    const createdAt = parseDate(entry.dateAdded)
-    if (createdAt) {
-      bookmarkInsert.created_at = createdAt
-    }
-    const updatedAt = parseDate(entry.dateGroupModified)
-    if (updatedAt) {
-      bookmarkInsert.updated_at = updatedAt
-    }
-
-    const { data: bookmark, error: insertError } = await supabase
-      .from("bookmarks")
-      .insert(bookmarkInsert)
-      .select("id, title, url, description")
-      .single()
-
-    if (insertError || !bookmark) {
-      failedCount++
-      const message = insertError?.message || "Failed to insert bookmark"
-      errors.push(message)
-      return
-    }
-
-    insertedCount++
-    if (aiEnabled) {
-      const embeddingText = [bookmark.title, bookmark.url, bookmark.description].filter(Boolean).join(" ")
-      if (embeddingText) {
-        upsertBookmarkEmbedding(user.id, bookmark.id, embeddingText).catch((error) =>
-          console.warn("Failed to upsert embedding", error),
-        )
-      }
+      errors.push(`Invalid URL: ${entry.url}`)
     }
   }
 
-  for (const item of bookmarks) {
-    await processEntry(item, { source: item.source ?? "chrome" })
-  }
+  // 4. Execute Insertion (Chunks)
+  const INSERT_CHUNK = 100
+  let insertedCount = 0
 
-  for (const item of readingList) {
-    await processEntry(item, { source: item.source ?? "readingList" })
+  for (let i = 0; i < toInsert.length; i += INSERT_CHUNK) {
+    const chunk = toInsert.slice(i, i + INSERT_CHUNK)
+    const { error } = await supabase.from("bookmarks").insert(chunk)
+
+    if (error) {
+      console.error("Bulk insert failed", error)
+      failedCount += chunk.length
+      errors.push(`Chunk failed: ${error.message}`)
+    } else {
+      insertedCount += chunk.length
+    }
   }
 
   return NextResponse.json({

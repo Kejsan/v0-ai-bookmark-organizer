@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ExternalLink, RefreshCw, Sparkles, Trash2, CheckCircle2, Circle } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import CategoryTree, { type CategoryTreeNode } from "@/components/category-tree"
 
 interface BookmarkRecord {
@@ -51,6 +52,8 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
   const [organizing, setOrganizing] = useState(false)
   const [organizeResult, setOrganizeResult] = useState<OrganizeResult | null>(null)
   const [appliedCategories, setAppliedCategories] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [enriching, setEnriching] = useState(false)
 
   const categoryMap = useMemo(() => {
     const map = new Map<string, number>()
@@ -242,17 +245,68 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
         setOrganizeResult((prev) =>
           prev
             ? {
-                ...prev,
-                duplicates: prev.duplicates.filter(
-                  (dup) => dup.firstId !== id && dup.secondId !== id,
-                ),
-              }
+              ...prev,
+              duplicates: prev.duplicates.filter(
+                (dup) => dup.firstId !== id && dup.secondId !== id,
+              ),
+            }
             : prev,
         )
       }
     },
     [handleDelete, organizeResult],
   )
+
+  const handleSelectAll = useCallback(() => {
+    if (activeTab === "bookmarks") {
+      if (selectedIds.size === bookmarks.length) {
+        setSelectedIds(new Set())
+      } else {
+        setSelectedIds(new Set(bookmarks.map((b) => b.id)))
+      }
+    }
+  }, [activeTab, bookmarks, selectedIds])
+
+  const toggleSelection = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  const handleBatchEnrich = useCallback(async (all = false) => {
+    setEnriching(true)
+    try {
+      const payload = all ? { all: true } : { ids: Array.from(selectedIds) }
+      const res = await fetch("/api/bookmarks/batch-enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        throw new Error("Batch enrichment failed")
+      }
+
+      const result = await res.json()
+      if (result.success) {
+        // Clear selection and refresh
+        setSelectedIds(new Set())
+        await fetchBookmarks()
+        alert(`Successfully enriched ${result.updated} bookmarks!`)
+      }
+    } catch (error) {
+      console.error(error)
+      alert("Failed to enrich bookmarks")
+    } finally {
+      setEnriching(false)
+    }
+  }, [selectedIds, fetchBookmarks])
 
   const contextBookmarks = organizeResult?.bookmarks || bookmarks
   const bookmarkLookup = useMemo(() => {
@@ -268,6 +322,20 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <CardTitle className="text-[#000080]">Library</CardTitle>
         <div className="flex flex-wrap gap-2">
+          {activeTab === "bookmarks" && (
+            <>
+              {selectedIds.size > 0 && (
+                <Button variant="outline" size="sm" onClick={() => handleBatchEnrich(false)} disabled={enriching}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {enriching ? "Enriching..." : `Enrich Selected (${selectedIds.size})`}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => handleBatchEnrich(true)} disabled={enriching}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                {enriching ? "Enriching..." : "Enrich All"}
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={fetchBookmarks} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
@@ -312,57 +380,62 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                           event.dataTransfer.setData("text/bookmark-id", String(bookmark.id))
                         }}
                       >
-                        <div className="min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
-                            {bookmark.favicon_url && (
-                              <Image
-                                src={bookmark.favicon_url}
-                                alt=""
-                                width={16}
-                                height={16}
-                                className="h-4 w-4"
-                                unoptimized
-                              />
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedIds.has(bookmark.id)}
+                            onCheckedChange={() => toggleSelection(bookmark.id)}
+                          />
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2">
+                              {bookmark.favicon_url && (
+                                <Image
+                                  src={bookmark.favicon_url}
+                                  alt=""
+                                  width={16}
+                                  height={16}
+                                  className="h-4 w-4"
+                                  unoptimized
+                                />
+                              )}
+                              <a
+                                href={bookmark.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="truncate font-semibold text-[#000080] hover:underline"
+                              >
+                                {bookmark.title || bookmark.url}
+                              </a>
+                            </div>
+                            {bookmark.description && (
+                              <p className="text-sm text-gray-600 line-clamp-3">
+                                {bookmark.description}
+                              </p>
                             )}
-                            <a
-                              href={bookmark.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="truncate font-semibold text-[#000080] hover:underline"
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                              {bookmark.folder_path && <Badge variant="outline">{bookmark.folder_path}</Badge>}
+                              {bookmark.source && <Badge variant="secondary">{bookmark.source}</Badge>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                              className="text-[#000080]"
                             >
-                              {bookmark.title || bookmark.url}
-                            </a>
+                              <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(bookmark.id)}
+                              className="text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          {bookmark.description && (
-                            <p className="text-sm text-gray-600 line-clamp-3">
-                              {bookmark.description}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                            {bookmark.folder_path && <Badge variant="outline">{bookmark.folder_path}</Badge>}
-                            {bookmark.source && <Badge variant="secondary">{bookmark.source}</Badge>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            className="text-[#000080]"
-                          >
-                            <a href={bookmark.url} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDelete(bookmark.id)}
-                            className="text-red-500"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
                       </li>
                     ))}
                   </ul>
