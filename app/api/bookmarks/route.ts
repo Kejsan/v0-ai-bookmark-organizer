@@ -25,13 +25,20 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category")
     const source = searchParams.get("source")
 
+    const page = Number(searchParams.get("page")) || 1
+    const limit = Number(searchParams.get("limit")) || 50
+    const start = (page - 1) * limit
+    const end = start + limit - 1
+
     let query = supabase
       .from("bookmarks")
       .select(
         "id, title, url, description, favicon_url, category_id, folder_path, source, is_read, created_at",
+        { count: "exact" }
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
+      .range(start, end)
 
     if (category) {
       const categoryId = Number(category)
@@ -46,7 +53,7 @@ export async function GET(request: NextRequest) {
       query = query.eq("source", source)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) {
       console.error("Failed to fetch bookmarks:", error)
@@ -56,7 +63,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ bookmarks: data || [] })
+    return NextResponse.json({
+      bookmarks: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count,
+        hasMore: count ? start + (data?.length || 0) < count : false
+      }
+    })
   } catch (error) {
     console.error("Bookmarks GET error:", error)
     return NextResponse.json(

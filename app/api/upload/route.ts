@@ -77,64 +77,68 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Helper: Ensure category exists (using local cache first)
-    // We still do this sequentially or carefully because parent IDs depend on previous inserts
-    // But since we have the full map, we only insert what's missing.
-    async function ensureCategoryPath(fullPath: string): Promise<number | null> {
-      if (!fullPath) return null
-      if (categoryMap.has(fullPath)) return categoryMap.get(fullPath)!
+    // 3. Ensure all needed categories exist (Batched by depth)
+    const sortedPaths = Array.from(rawCategories).sort()
 
-      const parts = fullPath.split("/")
-      let currentPath = ""
-      let parentId: number | null = null
+    // Group paths by depth
+    const pathsByDepth = new Map<number, string[]>()
+    let maxDepth = 0
 
-      for (const part of parts) {
-        currentPath = currentPath ? `${currentPath}/${part}` : part
-
-        if (categoryMap.has(currentPath)) {
-          parentId = categoryMap.get(currentPath)!
-        } else {
-          // Create it
-          const { data: created, error } = await supabase
-            .from("categories")
-            .insert({
-              user_id: user.id,
-              name: part,
-              path: currentPath,
-              parent_id: parentId
-            })
-            .select("id")
-            .single()
-
-          if (error || !created) {
-            console.error(`Failed to create category ${currentPath}`, error)
-            // If update failed (race condition?), try fetching it
-            const { data: retry } = await supabase
-              .from("categories")
-              .select("id")
-              .eq("user_id", user.id)
-              .eq("path", currentPath)
-              .single()
-
-            if (retry) {
-              parentId = retry.id
-              categoryMap.set(currentPath, retry.id)
-              continue
-            }
-            return parentId // Fallback to last known parent
-          }
-
-          parentId = created.id
-          categoryMap.set(currentPath, created.id)
-        }
+    for (const path of sortedPaths) {
+      const depth = path.split("/").length
+      if (!pathsByDepth.has(depth)) {
+        pathsByDepth.set(depth, [])
       }
-      return parentId
+      pathsByDepth.get(depth)!.push(path)
+      maxDepth = Math.max(maxDepth, depth)
     }
 
-    // 3. Ensure all needed categories exist
-    const sortedPaths = Array.from(rawCategories).sort()
-    for (const path of sortedPaths) {
-      await ensureCategoryPath(path)
+    // Process each depth level
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const pathsAtDepth = pathsByDepth.get(depth) || []
+      const missingPaths = pathsAtDepth.filter(p => !categoryMap.has(p))
+
+      if (missingPaths.length === 0) continue
+
+      const categoriesToInsert = []
+
+      for (const path of missingPaths) {
+        const parts = path.split("/")
+        const name = parts[parts.length - 1]
+        const parentPath = parts.slice(0, parts.length - 1).join("/")
+        const parentId = parentPath ? categoryMap.get(parentPath) : null
+
+        // Only insert if parent exists (or it's root)
+        // Since we process by depth, parent SHOULD exist if hierarchy is valid
+        if (parentPath && parentId === undefined) {
+          console.warn(`Skipping orphan category: ${path} (Parent missing: ${parentPath})`)
+          continue
+        }
+
+        categoriesToInsert.push({
+          user_id: user.id,
+          name,
+          path,
+          parent_id: parentId
+        })
+      }
+
+      if (categoriesToInsert.length > 0) {
+        // Batch insert for this depth
+        const { data: inserted, error } = await supabase
+          .from("categories")
+          .insert(categoriesToInsert)
+          .select("id, path")
+
+        if (error) {
+          console.error(`Failed to batch insert categories at depth ${depth}:`, error)
+          // Fallback or Abort? For now, we continue, but downstream bookmarks might fail or be un-categorized
+        } else if (inserted) {
+          for (const cat of inserted) {
+            categoryMap.set(cat.path, cat.id)
+          }
+        }
+      }
     }
 
     // 4. Prepare batch inserts
@@ -146,7 +150,7 @@ export async function POST(request: NextRequest) {
         validateUrl(item.href)
 
         // Resolve category ID from map (should exist now)
-        const categoryId = categoryMap.get(item.folderPath) || await ensureCategoryPath(item.folderPath) || null
+        const categoryId = categoryMap.get(item.folderPath) || null
 
         validBookmarks.push({
           user_id: user.id,

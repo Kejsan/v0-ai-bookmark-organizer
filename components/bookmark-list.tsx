@@ -55,6 +55,11 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [enriching, setEnriching] = useState(false)
 
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const categoryMap = useMemo(() => {
     const map = new Map<string, number>()
     const walk = (nodes: CategoryTreeNode[]) => {
@@ -83,8 +88,13 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
     }
   }, [])
 
-  const fetchBookmarks = useCallback(async () => {
-    setLoading(true)
+  const fetchBookmarks = useCallback(async (isLoadMore = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+    }
+
     try {
       const params = new URLSearchParams()
       if (activeTab === "bookmarks" && selectedCategory) {
@@ -93,41 +103,64 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
       if (activeTab === "readingList") {
         params.set("source", "readingList")
       }
+
+      const currentPage = isLoadMore ? page + 1 : 1
+      params.set("page", currentPage.toString())
+      params.set("limit", "50")
+
       const res = await fetch(`/api/bookmarks${params.toString() ? `?${params.toString()}` : ""}`)
       if (!res.ok) {
         throw new Error("Failed to fetch bookmarks")
       }
       const data = await res.json()
       const records = (data.bookmarks || []) as BookmarkRecord[]
-      if (activeTab === "readingList") {
-        setReadingList(records)
+      const pagination = data.pagination || { hasMore: false }
+
+      if (isLoadMore) {
+        setBookmarks((prev: BookmarkRecord[]) => [...prev, ...records])
+        setPage(currentPage)
       } else {
-        setBookmarks(records)
-        if (!selectedCategory) {
-          setOrganizeResult((current: OrganizeResult | null) =>
-            current ? { ...current, bookmarks: records } : current,
-          )
+        if (activeTab === "readingList") {
+          setReadingList(records)
+        } else {
+          setBookmarks(records)
+          setPage(1) // Reset page on fresh fetch
+          // Only update organize context if it's the initial load or full refresh, not necessarily on pagination
+          if (!selectedCategory) {
+            setOrganizeResult((current: OrganizeResult | null) =>
+              current ? { ...current, bookmarks: records } : current,
+            )
+          }
         }
       }
+      setHasMore(pagination.hasMore)
+
     } catch (error) {
       console.error(error)
-      if (activeTab === "readingList") {
-        setReadingList([])
-      } else {
-        setBookmarks([])
+      if (!isLoadMore) {
+        if (activeTab === "readingList") {
+          setReadingList([])
+        } else {
+          setBookmarks([])
+        }
       }
     } finally {
-      setLoading(false)
+      if (isLoadMore) {
+        setLoadingMore(false)
+      } else {
+        setLoading(false)
+      }
     }
-  }, [activeTab, selectedCategory])
+  }, [activeTab, selectedCategory, page])
 
   useEffect(() => {
     loadCategories()
   }, [loadCategories, refreshTrigger])
 
   useEffect(() => {
-    fetchBookmarks()
-  }, [fetchBookmarks, refreshTrigger])
+    // Reset to page 1 is handled inside fetchBookmarks(false)
+    fetchBookmarks(false)
+  }, [refreshTrigger, activeTab, selectedCategory])
 
   const handleCategoryDrop = useCallback(
     async (path: string | null, bookmarkId: number) => {
@@ -336,7 +369,7 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" onClick={fetchBookmarks} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => fetchBookmarks(false)} disabled={loading}>
             <RefreshCw className="mr-2 h-4 w-4" /> Refresh
           </Button>
           <Button variant="default" size="sm" onClick={handleOrganize} disabled={organizing}>
@@ -440,6 +473,18 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {activeTab === "bookmarks" && hasMore && (
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchBookmarks(true)}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? "Loading more..." : "Load More"}
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
