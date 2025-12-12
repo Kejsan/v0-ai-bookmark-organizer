@@ -1,4 +1,7 @@
+// Replace with http://localhost:3000 for local development
 const API_BASE_URL = "https://ai-bookmark-organizer.netlify.app"
+// const API_BASE_URL = "http://localhost:3000"
+
 const IMPORT_ENDPOINT = `${API_BASE_URL}/api/import-chrome`
 const DEFAULT_SETTINGS = {
   autoSync: false,
