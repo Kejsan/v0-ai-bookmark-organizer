@@ -110,7 +110,9 @@ export default function BookmarkList({ refreshTrigger = 0 }: BookmarkListProps) 
 
       const res = await fetch(`/api/bookmarks${params.toString() ? `?${params.toString()}` : ""}`)
       if (!res.ok) {
-        throw new Error("Failed to fetch bookmarks")
+        const errorData = await res.json().catch(() => ({}))
+        const errorMessage = errorData.details || errorData.error || "Failed to fetch bookmarks"
+        throw new Error(errorMessage)
       }
       const data = await res.json()
       const records = (data.bookmarks || []) as BookmarkRecord[]

@@ -33,8 +33,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("bookmarks")
       .select(
-        "id, title, url, description, favicon_url, category_id, folder_path, source, is_read, created_at",
-        { count: "exact" }
+        "id, title, url, description, favicon_url, category_id, folder_path, source, is_read, created_at"
       )
       .eq("user_id", user.id)
 
@@ -52,11 +51,23 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply sorting and pagination last
+    // Fetch one extra item to determine if there are more
     query = query
       .order("created_at", { ascending: false })
-      .range(start, end)
+      .range(start, start + limit)
 
-    const { data, error, count } = await query
+    const { data: rawData, error } = await query
+
+    if (error) {
+      console.error("Failed to fetch bookmarks:", error)
+      return NextResponse.json(
+        { error: "Failed to fetch bookmarks", details: error.message },
+        { status: 500 },
+      )
+    }
+
+    const hasMore = (rawData?.length || 0) > limit
+    const data = hasMore ? rawData!.slice(0, limit) : (rawData || [])
 
     if (error) {
       console.error("Failed to fetch bookmarks:", error)
@@ -67,12 +78,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      bookmarks: data || [],
+      bookmarks: data,
       pagination: {
         page,
         limit,
-        total: count,
-        hasMore: count ? start + (data?.length || 0) < count : false
+        hasMore
       }
     })
   } catch (error) {
