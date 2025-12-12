@@ -201,7 +201,13 @@ export async function POST(request: NextRequest) {
       return
     }
 
-    let metadata
+    // SKIP metadata fetching to prevent timeouts
+    const metadata = {
+      title: entry.title ?? entry.url,
+      description: entry.description ?? null,
+      favicon: entry.faviconUrl ?? null,
+    }
+    /*
     try {
       metadata = await fetchPageMetadata(entry.url)
     } catch (error) {
@@ -212,8 +218,10 @@ export async function POST(request: NextRequest) {
         favicon: entry.faviconUrl ?? null,
       }
     }
+    */
 
     let summary = metadata.description || entry.description || metadata.title || entry.url
+    /*
     if (aiEnabled) {
       try {
         summary = await summarizeUrlWithGemini(
@@ -226,6 +234,7 @@ export async function POST(request: NextRequest) {
         console.warn("Gemini summary failed", error)
       }
     }
+    */
 
     const bookmarkInsert: Record<string, any> = {
       user_id: user.id,

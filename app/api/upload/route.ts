@@ -106,17 +106,25 @@ export async function POST(request: NextRequest) {
 
             // Validate URL before fetching
             validateUrl(item.href)
-            // Fetch metadata
-            const metadata = await fetchPageMetadata(item.href)
+            
+            // SKIP metadata fetching to prevent timeouts
+            // const metadata = await fetchPageMetadata(item.href)
+            const metadata = { 
+              title: item.title || item.href, 
+              description: "", 
+              favicon: null 
+            }
 
-            // Generate AI summary (with fallback)
-            let summary = ""
+            // SKIP AI summary for now
+            const summary = ""
+            /*
             try {
               summary = await summarizeUrlWithGemini(user.id, item.href, metadata.title, metadata.description)
             } catch (error) {
               console.warn("Failed to generate summary:", error)
               summary = metadata.description || metadata.title || "No description available"
             }
+            */
 
             // Insert bookmark
             const { data: bookmark, error: bookmarkError } = await supabase
