@@ -77,7 +77,7 @@ export default function Dashboard() {
                 className="flex items-center gap-2"
               >
                 <RefreshCw className="h-4 w-4" />
-                Sync from Chrome
+                Setup Extension
               </Button>
             </div>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
