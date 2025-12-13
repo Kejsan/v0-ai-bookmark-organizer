@@ -186,7 +186,6 @@ export async function ingestBookmarks({
         title: b.title || b.url,
         url: b.url,
         description: b.description || "",
-        catgory_id: b.folderPath ? categoryMap.get(b.folderPath) : null, // Typo in original DB? check schema. usually category_id
         category_id: b.folderPath ? categoryMap.get(b.folderPath) : null,
         folder_path: b.folderPath,
         favicon_url: b.faviconUrl || null,
